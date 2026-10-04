@@ -1,0 +1,147 @@
+"""Club merging (Phillips and Sul, 2009; von Lyncker and Thoennissen, 2017)."""
+
+from __future__ import annotations
+
+from typing import Literal
+
+import numpy as np
+
+from .logt import CRITICAL_VALUE, LogTResult, cross_sectional_variation, log_t_test
+from .results import Club, ConvergenceClubs
+
+MergeMethod = Literal["PS", "vLT"]
+
+
+def _test(
+    result: ConvergenceClubs, ids, time_trim: float, hac_method: str | None = None
+) -> LogTResult:
+    H = cross_sectional_variation(result.values[list(ids)])
+    return log_t_test(H, time_trim, hac_method or result.hac_method)
+
+
+def merge_clubs(
+    result: ConvergenceClubs,
+    method: MergeMethod = "PS",
+    *,
+    threshold: float = CRITICAL_VALUE,
+    merge_divergent: bool = False,
+    estar: float = CRITICAL_VALUE,
+    time_trim: float | None = None,
+) -> ConvergenceClubs:
+    """Merge adjacent convergence clubs.
+
+    ``method="PS"`` (Phillips and Sul, 2009) grows each club with the
+    following ones as long as the merged group passes the log t test.
+    ``method="vLT"`` (von Lyncker and Thoennissen, 2017) also requires the
+    t-statistic of the merge to beat the one of merging the next two clubs.
+
+    Parameters
+    ----------
+    result
+        Output of :func:`find_clubs`.
+    threshold
+        Critical value of the log t test used to merge clubs.
+    merge_divergent
+        Also try to assign divergent units to the new clubs
+        (see :func:`merge_divergent`).
+    estar
+        Critical value used when merging divergent units.
+    time_trim
+        Overrides the ``time_trim`` used to find ``result``.
+    """
+    if method not in ("PS", "vLT"):
+        raise ValueError("method must be 'PS' or 'vLT'")
+    time_trim = result.time_trim if time_trim is None else time_trim
+    clubs = result.clubs
+    n = len(clubs)
+    if n < 2:
+        merged = result
+    else:
+        new: list[Club] = []
+        i = 0
+        while i < n - 1:
+            ids = list(clubs[i].ids)
+            names = [clubs[i].name]
+            append_last = False
+            for k in range(i + 1, n):
+                t = _test(result, ids + list(clubs[k].ids), time_trim).t_value
+                if t > threshold:
+                    if method == "vLT" and k < n - 1:
+                        # The R package runs this comparison test with the default
+                        # FQSB bandwidth whatever hac_method is; kept for parity.
+                        nxt = list(clubs[k].ids) + list(clubs[k + 1].ids)
+                        if not t > _test(result, nxt, time_trim, "FQSB").t_value:
+                            break
+                    ids += clubs[k].ids
+                    names.append(clubs[k].name)
+                else:
+                    append_last = k == n - 1
+                    break
+            i = k
+            new.append(
+                Club(
+                    f"club{len(new) + 1}",
+                    tuple(ids),
+                    _test(result, ids, time_trim),
+                    merged_from=tuple(names),
+                )
+            )
+            if append_last:
+                last = clubs[-1]
+                new.append(
+                    Club(f"club{len(new) + 1}", last.ids, last.model, merged_from=(last.name,))
+                )
+        merged = result._replace(clubs=tuple(new), time_trim=time_trim)
+
+    if merge_divergent:
+        return _merge_divergent(merged, time_trim, estar)
+    return merged
+
+
+def merge_divergent(
+    result: ConvergenceClubs,
+    *,
+    estar: float = CRITICAL_VALUE,
+    time_trim: float | None = None,
+) -> ConvergenceClubs:
+    """Assign divergent units to clubs (von Lyncker and Thoennissen, 2017).
+
+    Repeatedly tests every (club, divergent unit) pair and adds the unit with
+    the highest t-statistic to its club, as long as that t-statistic is above
+    ``estar``.
+    """
+    time_trim = result.time_trim if time_trim is None else time_trim
+    return _merge_divergent(result, time_trim, estar)
+
+
+def _merge_divergent(result: ConvergenceClubs, time_trim: float, estar: float) -> ConvergenceClubs:
+    clubs = list(result.clubs)
+    divergent = list(result.divergent_ids)
+    if not clubs:
+        return result
+
+    while divergent:
+        t = np.array(
+            [
+                [_test(result, club.ids + (d,), time_trim).t_value for d in divergent]
+                for club in clubs
+            ]
+        )
+        if not t.max() > estar:
+            break
+        # First maximum in column-major order, as R's which(..., arr.ind = TRUE).
+        flat = int(np.argmax(t.ravel(order="F")))
+        ci, di = np.unravel_index(flat, t.shape, order="F")
+        club, unit = clubs[ci], divergent.pop(di)
+        ids = club.ids + (unit,)
+        note = f"merged with divergent unit {result.data.index[unit]!s} (id {unit})"
+        clubs[ci] = Club(
+            club.name,
+            ids,
+            _test(result, ids, time_trim),
+            cstar=club.cstar,
+            merged_from=club.merged_from,
+            notes=club.notes + (note,),
+        )
+
+    return result._replace(clubs=tuple(clubs), divergent_ids=tuple(divergent), time_trim=time_trim)
