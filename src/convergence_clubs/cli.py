@@ -1,0 +1,211 @@
+"""Command-line interface: ``convergence-clubs data.csv [options]``."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from collections.abc import Sequence
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from . import __version__
+from .clustering import find_clubs
+from .filters import hp_filter
+from .logt import CRITICAL_VALUE
+from .panel import wide_panel
+from .sensitivity import sensitivity
+
+
+def _fraction(text: str) -> float:
+    """Parse ``0.33`` or ``1/3``."""
+    num, _, den = text.partition("/")
+    return float(num) / float(den) if den else float(num)
+
+
+def _plural(n: int, noun: str) -> str:
+    return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="convergence-clubs",
+        description=(
+            "Find convergence clubs (Phillips and Sul, 2007, 2009) in a CSV file with "
+            "units in rows and time periods in columns."
+        ),
+    )
+    parser.add_argument("csv", type=Path, help="input CSV file (wide format)")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+
+    data = parser.add_argument_group("data")
+    data.add_argument("--index-col", default="0", help="column with unit names (name or position)")
+    data.add_argument("--sep", default=",", help="CSV field separator (default ',')")
+    data.add_argument(
+        "--long",
+        nargs=3,
+        metavar=("UNIT", "TIME", "VALUE"),
+        help="the CSV is in long format (one row per unit and period) with these columns",
+    )
+    data.add_argument("--log", action="store_true", help="take logs before filtering")
+    data.add_argument(
+        "--hp-filter",
+        nargs="?",
+        const=400.0,
+        type=float,
+        metavar="LAMBDA",
+        help="HP-filter every unit (default lambda 400 when given without a value)",
+    )
+
+    method = parser.add_argument_group("clustering")
+    method.add_argument("--time-trim", type=_fraction, default=1 / 3, help="e.g. 1/3 (default)")
+    method.add_argument("--hac", choices=["FQSB", "AQSB"], default="FQSB")
+    method.add_argument("--cstar", type=float, default=0.0)
+    method.add_argument("--cstar-method", choices=["fixed", "incremental"], default="fixed")
+    method.add_argument("--cstar-increment", type=float, default=0.1)
+    method.add_argument("--cstar-cap", type=float, default=3.0)
+    method.add_argument("--merge", choices=["PS", "vLT"], help="merge clubs with this method")
+    method.add_argument(
+        "--merge-divergent", action="store_true", help="also assign divergent units to clubs"
+    )
+    method.add_argument("--estar", type=float, default=CRITICAL_VALUE)
+    method.add_argument(
+        "--sort-fraction",
+        type=_fraction,
+        default=0.0,
+        help="sort units by their mean over this last share of periods (default: last period)",
+    )
+
+    out = parser.add_argument_group("output")
+    out.add_argument("--memberships", type=Path, metavar="CSV", help="write unit -> club")
+    out.add_argument("--summary", type=Path, metavar="CSV", help="write the club summary")
+    out.add_argument("--plot", type=Path, metavar="FILE", help="save transition paths figure")
+    out.add_argument("--theme", choices=["light", "dark"], default="light")
+    out.add_argument("--units", choices=["lines", "band", "none"], default="lines")
+    out.add_argument("--details", action="store_true", help="print the members of every club")
+    out.add_argument(
+        "--members", action="store_true", help="add the members of each club to --summary"
+    )
+
+    robust = parser.add_argument_group("robustness")
+    robust.add_argument(
+        "--sensitivity",
+        action="store_true",
+        help="rerun with time_trim 1/3, 0.25, 0.3, 0.4 x FQSB/AQSB and report the agreement",
+    )
+    robust.add_argument(
+        "--sensitivity-plot", type=Path, metavar="FILE", help="save the co-membership heatmap"
+    )
+    return parser
+
+
+def _read(args: argparse.Namespace) -> pd.DataFrame:
+    if args.long:
+        unit, time, value = args.long
+        data = wide_panel(pd.read_csv(args.csv, sep=args.sep), unit=unit, time=time, value=value)
+    else:
+        index_col = int(args.index_col) if args.index_col.isdigit() else args.index_col
+        data = pd.read_csv(args.csv, sep=args.sep, index_col=index_col)
+    try:
+        data.columns = pd.Index([int(c) for c in data.columns])
+    except ValueError:
+        pass
+    if args.log:
+        data = np.log(data)
+    if args.hp_filter is not None:
+        data = hp_filter(data, lamb=args.hp_filter)
+    return data
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        data = _read(args)
+        options = {
+            "cstar_method": args.cstar_method,
+            "cstar_increment": args.cstar_increment,
+            "cstar_cap": args.cstar_cap,
+        }
+        result = find_clubs(
+            data,
+            time_trim=args.time_trim,
+            hac_method=args.hac,
+            cstar=args.cstar,
+            sort_fraction=args.sort_fraction,
+            **options,
+        )
+        if args.merge:
+            result = result.merge(
+                args.merge, merge_divergent=args.merge_divergent, estar=args.estar
+            )
+        elif args.merge_divergent:
+            result = result.merge_divergent(estar=args.estar)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        print(f"convergence-clubs: error: {exc}", file=sys.stderr)
+        return 1
+
+    print(
+        f"{_plural(result.n_clubs, 'convergence club')}, "
+        f"{_plural(result.n_divergent, 'divergent unit')}\n"
+    )
+    if result.n_clubs:
+        print(result.summary().to_string(float_format=lambda v: f"{v:.3f}"))
+    if result.n_divergent:
+        print(f"\ndivergent: {'; '.join(map(str, result.divergent))}")
+    if args.details:
+        print("\n" + str(result))
+
+    if args.memberships:
+        result.memberships().to_csv(args.memberships)
+    if args.summary:
+        result.summary(members=args.members).to_csv(args.summary)
+    if args.plot or args.sensitivity_plot:
+        import matplotlib
+
+        matplotlib.use("Agg")
+    if args.plot:
+        result.plot(theme=args.theme, units=args.units, ncols=4).savefig(args.plot, dpi=150)
+
+    if args.sensitivity or args.sensitivity_plot:
+        try:
+            _report_sensitivity(args, data, options)
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            print(f"convergence-clubs: error in sensitivity analysis: {exc}", file=sys.stderr)
+            return 1
+    return 0
+
+
+def _report_sensitivity(args: argparse.Namespace, data: pd.DataFrame, options: dict) -> None:
+    runs = sensitivity(
+        data,
+        time_trim=_unique([args.time_trim, 1 / 3, 0.25, 0.3, 0.4]),
+        hac_method=_unique([args.hac, "FQSB", "AQSB"]),
+        cstar=[args.cstar],
+        merge=[args.merge],
+        sort_fraction=[args.sort_fraction],
+        merge_divergent=args.merge_divergent,
+        **options,
+    )
+    table = runs.table().drop(columns=["cstar", "merge", "sort_fraction"])
+    print(f"\nsensitivity ({len(runs)} runs; the first is the run above)\n")
+    print(table.to_string(index=False, float_format=lambda v: f"{v:.3f}"))
+    least = runs.stability().dropna().sort_values("stability").head(10)
+    print("\nleast stable units (share of runs with their baseline club mates)\n")
+    print(least.to_string(float_format=lambda v: f"{v:.2f}"))
+    if args.sensitivity_plot:
+        ax = runs.plot(theme=args.theme)
+        ax.figure.savefig(args.sensitivity_plot, dpi=150)
+
+
+def _unique(values: list) -> list:
+    """Drop repeated values (with float tolerance), keeping the first occurrence."""
+    out: list = []
+    for v in values:
+        if not any(v == u or (isinstance(v, float) and abs(v - u) < 1e-9) for u in out):
+            out.append(v)
+    return out
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())
