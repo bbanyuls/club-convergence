@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from .beta import BetaResult
     from .results import Club, ConvergenceClubs
     from .sensitivity import SensitivityResult
+    from .sigma import SigmaResult
 
 ClubKey = str | int
 Colors = Sequence[str] | Mapping[str, str] | None
@@ -721,6 +722,62 @@ def plot_beta(
         ax, th, auto if title == "auto" else title, f"average growth {per}",
         xlabel=f"log level in {result.start}",
     )  # fmt: skip
+    return ax
+
+
+def plot_sigma(
+    result: SigmaResult,
+    *,
+    ax: Axes | None = None,
+    groups: Sequence[str] | None = None,
+    index: bool = False,
+    direct_labels: bool | Literal["auto"] = "auto",
+    legend: bool = True,
+    theme: str | Theme = "light",
+    colors: Colors = None,
+    title: str | None = "auto",
+) -> Axes:
+    """Dispersion over time for all units (muted) and within each club (club colours).
+
+    With ``index=True`` every series is divided by its first value, so groups
+    with very different spreads can be compared (1 = first period).
+    """
+    from .sigma import ALL, LABELS
+
+    th = _theme(theme)
+    ax = _new_axes(ax, th)
+    series = result.series if groups is None else result.series[list(groups)]
+    if index:
+        series = series / series.iloc[0]
+    x, labels = _x_values(series.index)
+    palette = _group_colors(
+        result.clubs, [g for g in series.columns if g != ALL], th, colors
+    )  # fmt: skip
+
+    if index:
+        ax.axhline(1.0, color=th.baseline, linewidth=1, zorder=1)
+    entries = []
+    for group in series.columns:
+        y = series[group].to_numpy()
+        if group == ALL:
+            kws = {"color": th.ink_muted, "linewidth": 2, "zorder": 2}
+        else:
+            kws = {"color": palette[group], "linewidth": 2, "zorder": 3}
+        ax.plot(x, y, label=group, solid_capstyle="round", **kws)
+        _end_dot(ax, th, x[-1], y[-1], kws["color"])
+        entries.append((group, y[-1]))
+
+    _style_axes(ax, th, x, labels)
+    if direct_labels is True or (direct_labels == "auto" and len(entries) <= 4):
+        _end_labels(ax, th, x[-1], entries)
+    if legend and len(entries) > 1:
+        if len(entries) > 4:
+            _legend(ax, th, loc="center left", bbox_to_anchor=(1.0, 0.5))
+        else:
+            _legend(ax, th, loc="best")
+    ylabel = LABELS[result.measure] + (" (first period = 1)" if index else "")
+    auto = "σ-convergence" + (" (indexed)" if index else "")
+    _decorate(ax, th, auto if title == "auto" else title, ylabel)
     return ax
 
 
