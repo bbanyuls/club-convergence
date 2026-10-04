@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import overload
+
 import numpy as np
 import pandas as pd
 
@@ -16,6 +18,10 @@ def _hp_trend_matrix(n: int, lamb: float) -> np.ndarray:
     return np.eye(n) + lamb * dtd
 
 
+@overload
+def hp_filter(data: pd.DataFrame, lamb: float = ...) -> pd.DataFrame: ...
+@overload
+def hp_filter(data: np.ndarray, lamb: float = ...) -> np.ndarray: ...
 def hp_filter(data: pd.DataFrame | np.ndarray, lamb: float = 400.0) -> pd.DataFrame | np.ndarray:
     """Hodrick-Prescott trend of every row (unit) of ``data``.
 

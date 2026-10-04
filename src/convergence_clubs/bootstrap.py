@@ -94,6 +94,7 @@ def bootstrap(
             runs.append(({"method": method, "replicate": i}, cluster(data.iloc[rows])))
 
     elif method == "cycle":
+        assert filter_lambda is not None  # checked above
         values = data.to_numpy(dtype=float)
         trend = hp_filter(values, lamb=filter_lambda)
         cycle = values - trend

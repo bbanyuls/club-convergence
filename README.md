@@ -556,6 +556,8 @@ Some other quirks are kept on purpose so that results stay identical to R:
 uv sync                              # create the environment
 uv run pytest                        # run the tests
 uv run ruff check . && uv run ruff format --check .
+uv run mypy                          # static type checking (also run in CI)
+uv run pytest --cov                  # CI fails if coverage drops below 95%
 Rscript scripts/generate_r_fixtures.R  # regenerate the R reference (needs R)
 uv run python scripts/make_figures.py  # regenerate the figures in docs/
 # docs/tutorial.ipynb is committed without outputs; tests/test_tutorial.py executes it

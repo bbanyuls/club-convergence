@@ -195,7 +195,7 @@ def co_membership_figure(
             ),
         )
     )  # fmt: skip
-    edges = np.cumsum([len(c) for c in base.clubs])[:-1] - 0.5 if base.n_clubs > 1 else []
+    edges: Any = np.cumsum([len(c) for c in base.clubs])[:-1] - 0.5 if base.n_clubs > 1 else []
     for edge in edges:
         fig.add_hline(y=edge, line={"color": th.surface, "width": 2})
         fig.add_vline(x=edge, line={"color": th.surface, "width": 2})

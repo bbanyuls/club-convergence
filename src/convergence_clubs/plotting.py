@@ -128,8 +128,9 @@ def club_styles(
     """
     th = _theme(theme)
     n = len(th.colors)
-    styles = {}
+    styles: dict[str, dict[str, Any]] = {}
     for pos, club in enumerate(result.clubs):
+        style: dict[str, Any]
         if isinstance(colors, Mapping) and club.name in colors:
             style = {"color": colors[club.name], "linestyle": "-"}
         elif isinstance(colors, Sequence) and not isinstance(colors, str) and pos < len(colors):
@@ -382,7 +383,7 @@ def plot_average_paths(
         _end_labels(ax, th, x[-1], entries)
     if legend and len(selected) > 1:
         # Emphasised clubs first, then the shared entry of the muted ones.
-        handles = [ln for ln in ax.get_lines() if not ln.get_label().startswith("_")]
+        handles = [ln for ln in ax.get_lines() if not str(ln.get_label()).startswith("_")]
         handles.sort(key=lambda ln: ln.get_label() == "other clubs")
         if len(handles) > 4:  # a long legend would cover the lines
             _legend(ax, th, handles=handles, loc="center left", bbox_to_anchor=(1.0, 0.5))
@@ -438,7 +439,7 @@ def plot_cross_sectional_variation(
             color=th.ink_muted,
         )
     _style_axes(ax, th, x, labels)
-    n_entries = len([ln for ln in ax.get_lines() if not ln.get_label().startswith("_")])
+    n_entries = len([ln for ln in ax.get_lines() if not str(ln.get_label()).startswith("_")])
     if legend and n_entries > 1:
         if n_entries > 4:  # a long legend would cover the lines
             _legend(ax, th, loc="center left", bbox_to_anchor=(1.0, 0.5))
@@ -616,16 +617,16 @@ def plot_stability(
         xlabel="share of runs with the baseline club mates",
     )  # fmt: skip
 
-    # Name the least stable units, skipping labels that would overlap.
-    renderer = ax.figure.canvas.get_renderer()
-    placed = []
+    # Name the least stable units, skipping labels that would overlap. Window extents
+    # are measured with the figure's own renderer, which works with every backend.
+    placed: list[Any] = []
     for i in range(min(label, len(st))):
         text = ax.annotate(
             str(st.index[i]), (st["stability"].iloc[i], y[i]), xytext=(6, 0),
             textcoords="offset points", va="center", fontsize=th.font_size - 1,
             color=th.ink_secondary,
         )  # fmt: skip
-        box = text.get_window_extent(renderer).expanded(1.05, 1.2)
+        box = text.get_window_extent().expanded(1.05, 1.2)
         if any(box.overlaps(other) for other in placed):
             text.remove()
         else:
@@ -765,6 +766,7 @@ def plot_sigma(
     entries = []
     for group in series.columns:
         y = series[group].to_numpy()
+        kws: dict[str, Any]
         if group == ALL:
             kws = {"color": th.ink_muted, "linewidth": 2, "zorder": 2}
         else:
@@ -1029,7 +1031,7 @@ def plot_transition_paths(
             result, ax=ax, clubs=[c.name for c in selected], emphasis=emphasis,
             legend=False, theme=th, colors=colors, ylabel=None,
         )  # fmt: skip
-        handles = [line for line in ax.get_lines() if not line.get_label().startswith("_")]
+        handles = [line for line in ax.get_lines() if not str(line.get_label()).startswith("_")]
         if legend and len(handles) > 1:
             fig.legend(
                 handles=handles,

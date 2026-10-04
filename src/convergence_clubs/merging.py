@@ -76,12 +76,12 @@ def _merge_pass(
 
 def merge_clubs(
     result: ConvergenceClubs,
-    method: MergeMethod = "PS",
+    method: MergeMethod | str = "PS",
     *,
     threshold: float = CRITICAL_VALUE,
     iterate: bool = False,
     merge_divergent: bool = False,
-    divergent_method: DivergentMethod = "pairwise",
+    divergent_method: DivergentMethod | str = "pairwise",
     estar: float = CRITICAL_VALUE,
     joint_first: bool = False,
     time_trim: float | None = None,

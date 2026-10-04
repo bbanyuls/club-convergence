@@ -7,6 +7,7 @@ import sys
 import warnings
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pandas as pd
@@ -23,11 +24,19 @@ from .report import report
 from .sensitivity import sensitivity
 from .sigma import sigma_convergence
 
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure
+
 
 def _fraction(text: str) -> float:
     """Parse ``0.33`` or ``1/3``."""
     num, _, den = text.partition("/")
     return float(num) / float(den) if den else float(num)
+
+
+def _figure(obj: Any) -> Figure:
+    """The figure to save: ``obj`` itself if it is a Figure, else the figure it belongs to."""
+    return cast("Figure", obj if hasattr(obj, "savefig") else obj.figure)
 
 
 def _plural(n: int, noun: str) -> str:
@@ -213,7 +222,7 @@ def _read(args: argparse.Namespace) -> tuple[pd.DataFrame, pd.DataFrame]:
     except ValueError:
         pass
     if args.log:
-        data = np.log(data)
+        data = data.transform(np.log)
     if args.fill_gaps:
         data = fill_gaps(data, max_gap=args.fill_gaps)
     if args.drop_incomplete:
@@ -333,7 +342,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             for w in caught:
                 print(f"convergence-clubs: warning: {w.message}", file=sys.stderr)
-            ax.figure.savefig(args.map, dpi=150)
+            _figure(ax).savefig(args.map, dpi=150)
         except (ImportError, OSError, KeyError, ValueError) as exc:
             print(f"convergence-clubs: error in map: {exc}", file=sys.stderr)
             return 1
@@ -393,7 +402,7 @@ def _report_sensitivity(args: argparse.Namespace, data: pd.DataFrame, options: d
     print(least.to_string(float_format=lambda v: f"{v:.2f}"))
     if args.sensitivity_plot:
         ax = runs.plot(theme=args.theme)
-        ax.figure.savefig(args.sensitivity_plot, dpi=150)
+        _figure(ax).savefig(args.sensitivity_plot, dpi=150)
 
 
 def _report_beta(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
@@ -413,7 +422,7 @@ def _report_beta(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
         import matplotlib
 
         matplotlib.use("Agg")
-        conditional.plot(theme=args.theme).figure.savefig(args.beta_plot, dpi=150)
+        _figure(conditional.plot(theme=args.theme)).savefig(args.beta_plot, dpi=150)
 
 
 def _report_sigma(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
@@ -425,11 +434,11 @@ def _report_sigma(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
         import matplotlib
 
         matplotlib.use("Agg")
-        sigma.plot(index=True, theme=args.theme).figure.savefig(args.sigma_plot, dpi=150)
+        _figure(sigma.plot(index=True, theme=args.theme)).savefig(args.sigma_plot, dpi=150)
 
 
 def _report_dynamics(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
-    levels = np.exp(raw) if args.log else raw
+    levels = raw.transform(np.exp) if args.log else raw
     dyn = distribution_dynamics(
         levels, n_classes=args.dynamics_classes, lag=args.dynamics_lag, clubs=result
     )

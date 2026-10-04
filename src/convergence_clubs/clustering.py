@@ -31,8 +31,8 @@ CoreRule = Literal["max_abs_t", "max_t"]
 class _Rules:
     """Implementation details that differ between the R and Stata packages."""
 
-    rounding: Rounding = "half_even"
-    core_rule: CoreRule = "max_abs_t"
+    rounding: Rounding | str = "half_even"
+    core_rule: CoreRule | str = "max_abs_t"
     #: R keeps raising c* while c* <= cap, Stata while c* < cap.
     cap_inclusive: bool = True
 
@@ -138,16 +138,16 @@ def find_clubs(
     data: pd.DataFrame,
     *,
     time_trim: float | None = None,
-    hac_method: HACMethod = "FQSB",
+    hac_method: HACMethod | str = "FQSB",
     cstar: float = 0.0,
-    cstar_method: CStarMethod | None = None,
+    cstar_method: CStarMethod | str | None = None,
     cstar_increment: float | None = None,
     cstar_cap: float | None = None,
     data_cols: Sequence[Hashable] | None = None,
     ref_col: Hashable | None = None,
     sort_fraction: float = 0.0,
-    convention: Convention = "R",
-    core_rule: CoreRule | None = None,
+    convention: Convention | str = "R",
+    core_rule: CoreRule | str | None = None,
 ) -> ConvergenceClubs:
     """Find convergence clubs with the Phillips and Sul clustering algorithm.
 
@@ -310,7 +310,9 @@ class ClubConvergenceWarning(UserWarning):
     """A club found by :func:`find_clubs` fails its own log t test."""
 
 
-def _validate_time_trim(n_periods: int, time_trim: float, rounding: Rounding = "half_even") -> None:
+def _validate_time_trim(
+    n_periods: int, time_trim: float, rounding: Rounding | str = "half_even"
+) -> None:
     if n_periods < 2:
         raise ValueError("at least two time periods are needed")
     if not 0 < time_trim <= 1:

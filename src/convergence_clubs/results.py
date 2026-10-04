@@ -127,7 +127,7 @@ class ConvergenceClubs:
         """
         rows = []
         for club in self.clubs:
-            row = {
+            row: dict[str, Any] = {
                 "n_units": len(club),
                 "beta": club.model.beta,
                 "std_err": club.model.std_err,

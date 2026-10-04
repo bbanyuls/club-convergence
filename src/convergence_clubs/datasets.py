@@ -8,7 +8,7 @@ import pandas as pd
 
 
 def _load(name: str) -> pd.DataFrame:
-    with files("convergence_clubs").joinpath("data", name).open("r") as fh:
+    with (files("convergence_clubs") / "data" / name).open("r") as fh:
         df = pd.read_csv(fh, index_col="Countries")
     df.columns = df.columns.astype(int)
     df.columns.name = "year"
@@ -35,7 +35,7 @@ def country_codes() -> pd.Series:
     ``ISO_A3_EH`` column). "Netherlands Antilles" (dissolved in 2010) keeps
     its historical code ``ANT``, which modern maps do not have.
     """
-    with files("convergence_clubs").joinpath("data", "country_codes.csv").open("r") as fh:
+    with (files("convergence_clubs") / "data" / "country_codes.csv").open("r") as fh:
         return pd.read_csv(fh, index_col="Countries")["iso3"]
 
 
@@ -50,7 +50,7 @@ _SAMPLES = {"all": None, "high_income": "yes", "other": "no"}
 
 
 def _productivity() -> pd.DataFrame:
-    with files("convergence_clubs").joinpath("data", "productivity.csv").open("r") as fh:
+    with (files("convergence_clubs") / "data" / "productivity.csv").open("r") as fh:
         return pd.read_csv(fh)
 
 
