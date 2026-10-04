@@ -26,8 +26,8 @@ It implements:
   - distribution dynamics (Markov transition matrices of relative income, the ergodic
     distribution, mobility indices and "twin peaks" densities);
 - **data preparation**: HP filtering, long-to-wide reshaping and handling of missing values;
-- **plots** you can customize, **interactive charts**, **maps** of club membership, and a
-  **command-line tool**.
+- **plots** you can customize, **interactive charts**, **maps** of club membership, a
+  **command-line tool**, and a **one-call HTML report** that works as a replication appendix.
 
 Results match the R package to within 1e-8, and with `convention="Stata"` they match the Stata
 package `psecta` (Du, 2018) on the published results of Mendez (2020). See
@@ -142,6 +142,34 @@ Explicit arguments override a convention's defaults. For example,
 On the replication data of Mendez (2020), the R convention reproduces 6 of the 8 Stata
 results. The other two differ because of the core rule and because `c*` had to rise to 4.85,
 above R's default cap of 3.
+
+## The report: every analysis in one file
+
+```python
+cc.report(cc.load_gdp()).save("appendix.html")   # levels in; log, HP filter, everything else
+```
+
+`report()` runs the standard pipeline on data in levels:
+- the log t test on the whole panel;
+- the clubs and the merged clubs, with their members;
+- a sensitivity grid and a bootstrap of membership confidence;
+- β- and σ-convergence;
+- distribution dynamics.
+
+It writes **one self-contained HTML file**:
+- tables are real HTML, so you can read and copy them; long ones are folded;
+- figures are embedded, in light and dark versions that follow the reader's system theme;
+- a settings table records every choice that affects the clubs, and the methods section lists
+  the references.
+
+Each section can be turned off (`sensitivity=False`, `bootstrap=0`, `beta=False`, …), and the
+clustering options (`convention=`, `time_trim=`, `cstar=`, …) are passed through. From the command
+line: `convergence-clubs gdp.csv --log --hp-filter --merge PS --report appendix.html`.
+
+![The clubs section of the example report](docs/report.png)
+
+See [`docs/report-example.html`](docs/report-example.html) for the full example on the GDP data
+(about 1.3 MB, built in about 5 seconds).
 
 ## Plots
 

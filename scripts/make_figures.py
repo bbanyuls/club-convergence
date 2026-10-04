@@ -81,6 +81,9 @@ def main() -> None:
     ax.figure.set_size_inches(11, 5.6)
     save(ax.figure, "map.png")
 
+    example = cc.report(gdp, title="Convergence of GDP per capita, 152 countries, 1970–2003")
+    print("wrote", example.save(DOCS / "report-example.html"))
+
 
 if __name__ == "__main__":
     main()

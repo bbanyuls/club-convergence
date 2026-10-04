@@ -19,6 +19,7 @@ from .dynamics import distribution_dynamics
 from .filters import hp_filter
 from .logt import CRITICAL_VALUE
 from .panel import balance, fill_gaps, wide_panel
+from .report import report
 from .sensitivity import sensitivity
 from .sigma import sigma_convergence
 
@@ -133,6 +134,12 @@ def build_parser() -> argparse.ArgumentParser:
     out.add_argument("--units", choices=["lines", "band", "none"], default="lines")
     out.add_argument(
         "--html", type=Path, metavar="FILE", help="save interactive transition paths (plotly)"
+    )
+    out.add_argument(
+        "--report",
+        type=Path,
+        metavar="FILE",
+        help="write a self-contained HTML report with every analysis (replication appendix)",
     )
     out.add_argument("--map", type=Path, metavar="FILE", help="save a map of the clubs")
     out.add_argument(
@@ -289,6 +296,28 @@ def main(argv: Sequence[str] | None = None) -> int:
             result.plot.interactive(theme=args.theme).write_html(args.html)
         except ImportError as exc:
             print(f"convergence-clubs: error: {exc}", file=sys.stderr)
+            return 1
+    if args.report:
+        try:
+            # raw holds the series before HP filtering (in logs with --log).
+            built = report(
+                raw,
+                log=False,
+                filter_lambda=args.hp_filter,
+                convention=args.convention,
+                time_trim=args.time_trim,
+                hac_method=args.hac,
+                merge=args.merge,
+                bootstrap=args.bootstrap or 200,
+                seed=args.seed if args.seed is not None else 0,
+                title=f"Convergence analysis of {args.csv.name}",
+                cstar=args.cstar,
+                core_rule=args.core_rule,
+                sort_fraction=args.sort_fraction,
+            )
+            print(f"\nreport written to {built.save(args.report)}")
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            print(f"convergence-clubs: error in report: {exc}", file=sys.stderr)
             return 1
     if args.map:
         if args.geodata is None:

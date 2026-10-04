@@ -175,3 +175,13 @@ def test_stata_convention_option(tmp_path, capsys):
     assert "needs --merge" in capsys.readouterr().err
     assert main([*base, "--convention", "Stata", "--sensitivity"]) == 0
     assert "sensitivity (" in capsys.readouterr().out
+
+
+def test_report_option(tmp_path, capsys):
+    csv, page = tmp_path / "gdp.csv", tmp_path / "report.html"
+    cc.load_gdp().iloc[:40].to_csv(csv)
+    args = [str(csv), "--log", "--hp-filter", "--merge", "PS", "--bootstrap", "3", "--seed", "1"]
+    assert main([*args, "--report", str(page)]) == 0
+    assert "report written to" in capsys.readouterr().out
+    text = page.read_text(encoding="utf-8")
+    assert "Convergence analysis of gdp.csv" in text and "<img " in text
