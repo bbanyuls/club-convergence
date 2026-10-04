@@ -78,6 +78,24 @@ merged.plot()                    # transition paths (see Plots below)
 
 In Jupyter, a result displays as a summary table.
 
+### Bundled datasets
+
+| Loader | Data |
+|---|---|
+| `load_gdp()`, `load_filtered_gdp()` | GDP per capita of 152 countries, 1970–2003 (Phillips and Sul, 2009), from the R package. `country_codes()` gives their ISO3 codes. |
+| `load_productivity(variable, sample=)` | Penn World Table 9.0 for 108 countries, 1990–2014 (Mendez, 2020): labor productivity `"lp"`, capital-output ratio `"ky"`, human capital `"h"`, TFP `"tfp"` and GDP per capita `"gdppc"`, in levels. `sample` is `"all"`, `"high_income"` (26 countries) or `"other"` (82). `productivity_info()` gives the ISO3 codes, regions and 1990 income groups. |
+
+Both are published with their club results, so they work as worked examples. Applying `hp_filter` and
+`convention="Stata"` to the productivity data reproduces the book's Stata clubs exactly, for all four
+variables in both samples:
+
+```python
+lp = cc.load_productivity("lp", sample="other")                  # 82 countries, levels
+clubs = cc.find_clubs(cc.hp_filter(np.log(lp)), convention="Stata", time_trim=0.333)
+[len(c) for c in clubs]                # [31, 20, 8, 15, 5, 2] and 1 divergent, as psecta
+[len(c) for c in clubs.merge("PS")]    # [51, 8, 15, 5, 2], as imergeclub
+```
+
 ### Input data
 
 Pass a `pandas.DataFrame` with **units in rows** (the index holds unique unit names) and
