@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from . import __version__
+from .beta import beta_convergence
 from .bootstrap import bootstrap
 from .clustering import ClubConvergenceWarning, find_clubs
 from .filters import hp_filter
@@ -124,6 +125,14 @@ def build_parser() -> argparse.ArgumentParser:
         "endpoint: drop the last periods",
     )
     robust.add_argument("--seed", type=int, help="random seed for --bootstrap")
+
+    classic = parser.add_argument_group("classical convergence")
+    classic.add_argument(
+        "--beta",
+        action="store_true",
+        help="β-convergence on the unfiltered data: absolute, conditional on clubs, by club",
+    )
+    classic.add_argument("--beta-plot", type=Path, metavar="FILE", help="save the β scatter")
     return parser
 
 
@@ -218,6 +227,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, ValueError, TypeError, KeyError) as exc:
             print(f"convergence-clubs: error in sensitivity analysis: {exc}", file=sys.stderr)
             return 1
+    if args.beta or args.beta_plot:
+        try:
+            _report_beta(args, raw, result)
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            print(f"convergence-clubs: error in β-convergence: {exc}", file=sys.stderr)
+            return 1
     if args.bootstrap:
         try:
             _report_bootstrap(args, raw, options)
@@ -247,6 +262,26 @@ def _report_sensitivity(args: argparse.Namespace, data: pd.DataFrame, options: d
     if args.sensitivity_plot:
         ax = runs.plot(theme=args.theme)
         ax.figure.savefig(args.sensitivity_plot, dpi=150)
+
+
+def _report_beta(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
+    log = not args.log  # with --log the unfiltered data are already in logs
+    absolute = beta_convergence(raw, log=log, clubs=result)
+    conditional = beta_convergence(raw, log=log, clubs=result, club_effects=True)
+    print(f"\nβ-convergence {absolute.start}-{absolute.end} (HC1 standard errors)\n")
+    for name, fit in [("absolute", absolute), ("conditional on clubs", conditional)]:
+        life = f"{fit.half_life:.1f}" if fit.converges() else "n/a"
+        print(
+            f"  {name:<22} beta {fit.beta: .5f}  s.e. {fit.std_err:.5f}  "
+            f"t {fit.t_value: .2f}  p {fit.p_value:.3g}  half-life {life}"
+        )
+    print("\nwithin clubs\n")
+    print(absolute.by_club().to_string(float_format=lambda v: f"{v:.4f}"))
+    if args.beta_plot:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        conditional.plot(theme=args.theme).figure.savefig(args.beta_plot, dpi=150)
 
 
 def _report_bootstrap(args: argparse.Namespace, raw: pd.DataFrame, options: dict) -> None:

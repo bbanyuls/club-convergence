@@ -1,5 +1,6 @@
 """Regenerate the figures in docs/ (run: uv run python scripts/make_figures.py)."""
 
+import warnings
 from pathlib import Path
 
 import matplotlib
@@ -9,6 +10,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 import convergence_clubs as cc  # noqa: E402
+
+warnings.simplefilter("ignore", cc.ClubConvergenceWarning)
 
 DOCS = Path(__file__).resolve().parent.parent / "docs"
 DPI = 120
@@ -40,6 +43,12 @@ def main() -> None:
 
     runs = cc.sensitivity(cc.load_filtered_gdp(), cstar=[0, -1], merge=[None, "PS"])
     save(runs.plot().figure, "co_membership.png")
+
+    gdp = cc.load_gdp()
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.2), layout="constrained")
+    cc.beta_convergence(gdp).plot(ax=axes[0], label=["China", "Botswana", "Liberia", "Ireland"])
+    cc.beta_convergence(gdp, clubs=merged, club_effects=True).plot(ax=axes[1])
+    save(fig, "beta.png")
 
     boot = cc.bootstrap(cc.load_filtered_gdp(), 200, seed=0)
     save(boot.plot_stability().figure, "stability.png")

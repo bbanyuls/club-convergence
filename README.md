@@ -19,6 +19,8 @@ It implements:
   - **bootstrap confidence** in each unit's club, by resampling units, business cycles or the
     end of the sample;
   - warnings when a club fails its own convergence test;
+- **classical convergence**: β-convergence (absolute, conditional on controls or on clubs, and
+  within each club), with the implied speed and half-life;
 - **data preparation**: HP filtering, long-to-wide reshaping and handling of missing values;
 - **plots** you can customize, and a **command-line tool**.
 
@@ -234,6 +236,37 @@ under all three schemes. Club 1 is solid when units are resampled (every member 
 fairly solid under cycle resampling (≥ 0.80). Dropping the last years, however, moves some of
 its members (down to 0.45), so the end of the sample matters for the top club.
 
+## β-convergence
+
+β-convergence (Barro and Sala-i-Martin, 1992) asks whether poorer units grow faster. It
+regresses average growth on the initial log level:
+
+    g_i = (ln y_iT − ln y_i0) / T = a + β ln y_i0 (+ controls) + e_i
+
+β < 0 means convergence, at speed λ = −ln(1 + βT)/T and with half-life ln 2 / λ. When the
+whole panel does *not* converge but units within groups do, that is exactly the situation
+that convergence clubs describe.
+
+```python
+gdp = cc.load_gdp()                                  # levels, not HP-filtered
+cc.beta_convergence(gdp)                             # absolute: β, s.e., t, p, speed, half-life
+cc.beta_convergence(gdp, controls=covariates)        # conditional on covariates (indexed by unit)
+fit = cc.beta_convergence(gdp, clubs=merged, club_effects=True)   # club intercepts
+fit.summary()       # coefficient table
+fit.by_club()       # a separate β regression within each club
+fit.plot()          # figure below (right panel)
+```
+
+Standard errors are HC1 by default (Stata's `robust`); `cov_type="HC0"` and `"nonrobust"` are
+also available. p-values use the Student t distribution. Estimates match statsmodels in the
+tests. When 1 + βT ≤ 0 the speed formula is undefined, and speed and half-life are NaN.
+
+![Absolute β-convergence (left) and β-convergence conditional on clubs (right)](docs/beta.png)
+
+On the GDP data there is no absolute convergence: β ≈ 0 and p = 0.81. Conditional on the clubs
+β is clearly negative (t = −14.8, half-life about 33 years), and it is negative within every
+club with enough members.
+
 ## Command line
 
 ```bash
@@ -253,6 +286,9 @@ The CSV file must have units in rows and periods in columns. For a long-format f
 `--sensitivity` reruns the clustering with `time_trim` set to 1/3, 0.25, 0.3 and 0.4, each with
 FQSB and AQSB. It prints the agreement table and the least stable units, and
 `--sensitivity-plot FILE` saves the heatmap.
+
+`--beta` estimates β-convergence on the unfiltered data, absolute and conditional on the clubs,
+and within each club. `--beta-plot FILE` saves the figure.
 
 `--bootstrap 200 --bootstrap-method units|cycle|endpoint --seed 0` reports the mean agreement
 with the full-sample clubs and the units with confidence below 0.8. With `--hp-filter`, every
@@ -329,6 +365,8 @@ uv run python scripts/make_figures.py  # regenerate the figures in docs/
 - Sichera, R. and Pizzuto, P. (2019). ConvergenceClubs: A package for performing the
   Phillips and Sul's club convergence clustering procedure. *The R Journal*, 11(2),
   142-151.
+- Barro, R. J. and Sala-i-Martin, X. (1992). Convergence. *Journal of Political Economy*,
+  100(2), 223-251.
 - Andrews, D. W. K. (1991). Heteroskedasticity and autocorrelation consistent covariance
   matrix estimation. *Econometrica*, 59(3), 817-858.
 
