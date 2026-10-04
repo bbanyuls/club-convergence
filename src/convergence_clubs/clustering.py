@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 from collections.abc import Hashable, Sequence
 from typing import Literal
 
@@ -160,7 +161,7 @@ def find_clubs(
         units = missing.index[missing].tolist()
         raise ValueError(
             f"data must not contain missing values; {len(units)} units have some, "
-            f"e.g. {units[:5]} (drop or interpolate them first)"
+            f"e.g. {units[:5]}; see describe_missing(), fill_gaps() and balance()"
         )
     _validate_time_trim(len(data_cols), time_trim)
     if hac_method not in HAC_METHODS:
@@ -212,7 +213,7 @@ def find_clubs(
         clubs.append(Club(name, tuple(remaining[members].tolist()), model, cstar=club_cstar))
         remaining = np.delete(remaining, members)
 
-    return ConvergenceClubs(
+    result = ConvergenceClubs(
         clubs=tuple(clubs),
         divergent_ids=divergent,
         data=values,
@@ -227,6 +228,21 @@ def find_clubs(
             "ref_col": ref_col,
         },
     )
+    if result.failing_clubs:
+        names = result.failing_clubs
+        verb = "does" if len(names) == 1 else "do"
+        warnings.warn(
+            f"{', '.join(names)} {verb} not pass the log t test as a whole "
+            f"(t <= {CRITICAL_VALUE}); consider cstar_method='incremental' or a higher cstar. "
+            "See ConvergenceClubs.failing_clubs.",
+            ClubConvergenceWarning,
+            stacklevel=2,
+        )
+    return result
+
+
+class ClubConvergenceWarning(UserWarning):
+    """A club found by :func:`find_clubs` fails its own log t test."""
 
 
 def _validate_time_trim(n_periods: int, time_trim: float) -> None:

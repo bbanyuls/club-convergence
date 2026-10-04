@@ -41,6 +41,9 @@ def main() -> None:
     runs = cc.sensitivity(cc.load_filtered_gdp(), cstar=[0, -1], merge=[None, "PS"])
     save(runs.plot().figure, "co_membership.png")
 
+    boot = cc.bootstrap(cc.load_filtered_gdp(), 200, seed=0)
+    save(boot.plot_stability().figure, "stability.png")
+
 
 if __name__ == "__main__":
     main()

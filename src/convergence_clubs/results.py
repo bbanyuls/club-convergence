@@ -37,6 +37,11 @@ class Club:
     def __len__(self) -> int:
         return len(self.ids)
 
+    @property
+    def converges(self) -> bool:
+        """Whether the club passes its own log t test (t > -1.65)."""
+        return self.model.converges()
+
 
 @dataclass(frozen=True, eq=False)
 class ConvergenceClubs:
@@ -80,6 +85,16 @@ class ConvergenceClubs:
         return len(self.divergent_ids)
 
     @property
+    def failing_clubs(self) -> tuple[str, ...]:
+        """Names of clubs that do not pass their own log t test.
+
+        With ``cstar_method="fixed"`` the clustering procedure accepts a club
+        even when the club as a whole fails the test; Phillips and Sul (2007)
+        suggest raising ``c*`` then (``cstar_method="incremental"``).
+        """
+        return tuple(club.name for club in self.clubs if not club.converges)
+
+    @property
     def is_merged(self) -> bool:
         return any(club.merged_from is not None for club in self.clubs)
 
@@ -118,6 +133,7 @@ class ConvergenceClubs:
                 "std_err": club.model.std_err,
                 "t_value": club.model.t_value,
                 "p_value": club.model.p_value,
+                "converges": club.converges,
             }
             if self.is_merged:
                 row["merged_clubs"] = ", ".join(club.merged_from or ())
@@ -204,6 +220,8 @@ class ConvergenceClubs:
             out.append(f"std.err:  {club.model.std_err: .4f}")
             out.append(f"t-value:  {club.model.t_value: .4f}")
             out.append(f"p-value:  {club.model.p_value: .4f}")
+            if not club.converges:
+                out.append("warning:   the club does not pass its own log t test (t <= -1.65)")
             if club.cstar is not None:
                 out.append(f"cstar:    {club.cstar: .4f}")
             if club.merged_from is not None:
