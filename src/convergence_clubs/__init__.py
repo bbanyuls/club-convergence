@@ -7,6 +7,7 @@ from .beta import BetaResult, beta_convergence
 from .bootstrap import bootstrap
 from .clustering import ClubConvergenceWarning, find_clubs
 from .datasets import load_filtered_gdp, load_gdp
+from .dynamics import DynamicsResult, distribution_dynamics
 from .filters import hp_filter
 from .logt import (
     CRITICAL_VALUE,
@@ -24,13 +25,17 @@ from .plotting import (
     Theme,
     plot_average_paths,
     plot_beta,
+    plot_class_distributions,
     plot_club,
     plot_co_membership,
     plot_cross_sectional_variation,
+    plot_densities,
+    plot_dynamics,
     plot_log_t,
     plot_sigma,
     plot_stability,
     plot_transition_paths,
+    plot_transitions,
 )
 from .results import Club, ConvergenceClubs
 from .sensitivity import (
@@ -51,6 +56,7 @@ __all__ = [
     "Club",
     "ClubConvergenceWarning",
     "ConvergenceClubs",
+    "DynamicsResult",
     "LogTResult",
     "SensitivityResult",
     "SigmaResult",
@@ -62,6 +68,7 @@ __all__ = [
     "compare_clubs",
     "cross_sectional_variation",
     "describe_missing",
+    "distribution_dynamics",
     "fill_gaps",
     "find_clubs",
     "hp_filter",
@@ -73,13 +80,17 @@ __all__ = [
     "merge_divergent",
     "plot_average_paths",
     "plot_beta",
+    "plot_class_distributions",
     "plot_club",
     "plot_co_membership",
     "plot_cross_sectional_variation",
+    "plot_densities",
+    "plot_dynamics",
     "plot_log_t",
     "plot_sigma",
     "plot_stability",
     "plot_transition_paths",
+    "plot_transitions",
     "relative_transition",
     "sensitivity",
     "sigma_convergence",

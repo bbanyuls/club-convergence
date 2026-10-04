@@ -56,6 +56,13 @@ def main() -> None:
     sigma.plot(ax=axes[1], index=True)
     save(fig, "sigma.png")
 
+    dynamics = cc.distribution_dynamics(gdp, lag=5, clubs=merged)
+    save(dynamics.plot(), "dynamics.png")
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.2), layout="constrained")
+    dynamics.plot_densities(ax=axes[0])
+    dynamics.plot_densities(ax=axes[1], periods=[1970, 1980, 1990, 2003], rug=False)
+    save(fig, "densities.png")
+
     boot = cc.bootstrap(cc.load_filtered_gdp(), 200, seed=0)
     save(boot.plot_stability().figure, "stability.png")
 

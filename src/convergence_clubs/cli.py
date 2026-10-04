@@ -15,6 +15,7 @@ from . import __version__
 from .beta import beta_convergence
 from .bootstrap import bootstrap
 from .clustering import ClubConvergenceWarning, find_clubs
+from .dynamics import distribution_dynamics
 from .filters import hp_filter
 from .logt import CRITICAL_VALUE
 from .panel import balance, fill_gaps, wide_panel
@@ -143,6 +144,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="σ-convergence on the unfiltered data: dispersion trend, overall and within clubs",
     )
     classic.add_argument("--sigma-plot", type=Path, metavar="FILE", help="save the σ figure")
+    classic.add_argument(
+        "--dynamics",
+        action="store_true",
+        help="distribution dynamics: transition matrix of relative income classes",
+    )
+    classic.add_argument("--dynamics-classes", type=int, default=5, metavar="K")
+    classic.add_argument("--dynamics-lag", type=int, default=5, metavar="L")
+    classic.add_argument(
+        "--dynamics-plot", type=Path, metavar="FILE", help="save the transition matrix figure"
+    )
     return parser
 
 
@@ -255,6 +266,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, ValueError, TypeError, KeyError) as exc:
             print(f"convergence-clubs: error in σ-convergence: {exc}", file=sys.stderr)
             return 1
+    if args.dynamics or args.dynamics_plot:
+        try:
+            _report_dynamics(args, raw, result)
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            print(f"convergence-clubs: error in distribution dynamics: {exc}", file=sys.stderr)
+            return 1
     if args.bootstrap:
         try:
             _report_bootstrap(args, raw, options)
@@ -316,6 +333,29 @@ def _report_sigma(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
 
         matplotlib.use("Agg")
         sigma.plot(index=True, theme=args.theme).figure.savefig(args.sigma_plot, dpi=150)
+
+
+def _report_dynamics(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
+    levels = np.exp(raw) if args.log else raw
+    dyn = distribution_dynamics(
+        levels, n_classes=args.dynamics_classes, lag=args.dynamics_lag, clubs=result
+    )
+    s = dyn.summary()
+    print(
+        f"\ndistribution dynamics ({dyn.n_classes} classes of relative income, "
+        f"{dyn.lag}-period transitions): Shorrocks mobility {s['shorrocks']:.3f}, "
+        f"|λ2| {s['second_eigenvalue']:.3f}, half-life {s['half_life']:.1f}\n"
+    )
+    print(dyn.matrix.to_string(float_format=lambda v: f"{v:.3f}"))
+    print()
+    print(dyn.distributions().to_string(float_format=lambda v: f"{v:.3f}"))
+    print("\nclubs by class in the last period\n")
+    print(dyn.composition().to_string())
+    if args.dynamics_plot:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        dyn.plot(theme=args.theme).savefig(args.dynamics_plot, dpi=150)
 
 
 def _report_bootstrap(args: argparse.Namespace, raw: pd.DataFrame, options: dict) -> None:

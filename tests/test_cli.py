@@ -121,6 +121,16 @@ def test_sigma_option(tmp_path, capsys):
     assert figure.stat().st_size > 0
 
 
+def test_dynamics_option(tmp_path, capsys):
+    csv, figure = tmp_path / "gdp.csv", tmp_path / "dyn.png"
+    cc.load_gdp().to_csv(csv)
+    args = [str(csv), "--log", "--hp-filter", "--merge", "PS", "--dynamics-plot", str(figure)]
+    assert main([*args, "--dynamics-lag", "5", "--dynamics-classes", "4"]) == 0
+    out = capsys.readouterr().out
+    assert "4 classes of relative income, 5-period transitions" in out
+    assert "ergodic" in out and "clubs by class" in out and figure.stat().st_size > 0
+
+
 def test_html_option(tmp_path, capsys):
     csv, page = tmp_path / "f.csv", tmp_path / "clubs.html"
     cc.load_filtered_gdp().to_csv(csv)

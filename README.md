@@ -23,6 +23,8 @@ It implements:
   - β-convergence (absolute, conditional on controls or on clubs, and within each club), with
     the implied speed and half-life;
   - σ-convergence (the trend of dispersion over time, for the whole panel and within each club);
+  - distribution dynamics (Markov transition matrices of relative income, the ergodic
+    distribution, mobility indices and "twin peaks" densities);
 - **data preparation**: HP filtering, long-to-wide reshaping and handling of missing values;
 - **plots** you can customize, and a **command-line tool**.
 
@@ -315,6 +317,37 @@ On the GDP data, the dispersion across all countries *rises* by 16% between 1970
 (σ-divergence), while it falls significantly within each of the five clubs with at least 3
 countries.
 
+## Distribution dynamics and twin peaks
+
+β and σ reduce the cross-section to one number. Quah (1993, 1996) looked instead at the
+*shape* of the distribution and how units move within it. His "twin peaks" (the world splitting
+into a rich and a poor group) are the distributional counterpart of convergence clubs.
+
+```python
+dyn = cc.distribution_dynamics(gdp, lag=5, clubs=merged)   # 5 quantile classes of y / mean(y)
+dyn.matrix          # transition probabilities between classes over 5 years
+dyn.distributions() # initial, final and ergodic (long-run) shares of each class
+dyn.summary()       # Shorrocks mobility, |λ2|, half-life to the ergodic distribution
+dyn.composition()   # how many units of each club are in each class
+dyn.plot()          # transition matrix and class distributions (first figure)
+dyn.plot_densities()                  # kernel densities, with each club's units as a rug
+```
+
+Income is taken relative to each year's cross-sectional mean, so common growth doesn't move
+units between classes. By default the classes are quintiles of the pooled distribution; you
+can set `bounds=[0.25, 0.5, 1, 2]` instead. The densities are kernel estimates of *log*
+relative income, which avoids putting mass below zero, drawn on a log axis (Silverman
+bandwidth). They match scipy's `gaussian_kde` in the tests.
+
+![Transition matrix and class distributions](docs/dynamics.png)
+
+![Densities of relative income: 1970 vs 2003 with clubs (left), and every decade (right)](docs/densities.png)
+
+On the GDP data, the long-run distribution piles up at both ends: 28% of countries in the
+poorest class and 32% in the richest, against 12% in the middle class. By 2003 the density has
+two clear peaks, at about 0.12× and 2× the mean, and the club rugs show which clubs sit under
+each peak.
+
 ## Command line
 
 ```bash
@@ -340,6 +373,10 @@ and within each club. `--beta-plot FILE` saves the figure.
 
 `--sigma` reports the trend of dispersion overall and within each club, and `--sigma-plot FILE`
 saves the indexed figure.
+
+`--dynamics` prints the transition matrix, the class distributions and the clubs in each
+class. The defaults are 5 classes and 5-year transitions (`--dynamics-classes`,
+`--dynamics-lag`), and `--dynamics-plot FILE` saves the figure.
 
 `--bootstrap 200 --bootstrap-method units|cycle|endpoint --seed 0` reports the mean agreement
 with the full-sample clubs and the units with confidence below 0.8. With `--hp-filter`, every
@@ -418,6 +455,11 @@ uv run python scripts/make_figures.py  # regenerate the figures in docs/
   142-151.
 - Barro, R. J. and Sala-i-Martin, X. (1992). Convergence. *Journal of Political Economy*,
   100(2), 223-251.
+- Quah, D. T. (1993). Galton's fallacy and tests of the convergence hypothesis.
+  *Scandinavian Journal of Economics*, 95(4), 427-443.
+- Quah, D. T. (1996). Twin peaks: growth and convergence in models of distribution dynamics.
+  *Economic Journal*, 106(437), 1045-1055.
+- Shorrocks, A. F. (1978). The measurement of mobility. *Econometrica*, 46(5), 1013-1024.
 - Andrews, D. W. K. (1991). Heteroskedasticity and autocorrelation consistent covariance
   matrix estimation. *Econometrica*, 59(3), 817-858.
 
