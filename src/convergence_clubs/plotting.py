@@ -535,7 +535,7 @@ def plot_co_membership(
         ax.axhline(edge, color=th.surface, linewidth=1.5)
         ax.axvline(edge, color=th.surface, linewidth=1.5)
 
-    for spine in ax.spines.values():
+    for spine in (ax.spines[side] for side in ("top", "right", "bottom", "left")):
         spine.set_visible(False)
     ax.tick_params(length=0, labelsize=th.font_size - 1, labelcolor=th.ink_secondary)
     names = base.data.index[order]
@@ -835,7 +835,7 @@ def plot_transitions(
                 if np.isfinite(P[i, j]):
                     ax.text(j, i, f"{P[i, j]:.2f}", ha="center", va="center",
                             fontsize=th.font_size, color=_text_on(cmap(P[i, j]), th))  # fmt: skip
-    for spine in ax.spines.values():
+    for spine in (ax.spines[side] for side in ("top", "right", "bottom", "left")):
         spine.set_visible(False)
     ax.set_facecolor(th.surface)
     ax.figure.set_facecolor(th.surface)

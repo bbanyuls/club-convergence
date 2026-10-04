@@ -20,5 +20,8 @@ jobs:
       - run: uv sync
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run mypy
+      # One job is enough: stub packages differ across the versions resolved
+      # for each Python. mypy checks the code as Python 3.10 (pyproject.toml).
+      - if: matrix.python-version == '3.13'
+        run: uv run mypy
       - run: uv run pytest --cov --cov-report=term
