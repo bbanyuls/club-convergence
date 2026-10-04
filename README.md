@@ -14,11 +14,13 @@ It implements:
   incremental);
 - **club merging**, using either the Phillips and Sul (2009) rule or the von Lyncker and
   Thoennissen (2017) rule, plus merging of divergent units;
-- **sensitivity analysis**: how stable the clubs are across `time_trim`, HAC method, `c*`,
-  merging and unit ordering, measured with co-membership, adjusted Rand index and a stability
-  score for each unit;
-- **HP filtering**, long-to-wide reshaping, relative transition paths, plots that you can
-  customize and a command-line tool.
+- **robustness checks**:
+  - sensitivity of the clubs to `time_trim`, the HAC method, `c*`, merging and unit ordering;
+  - **bootstrap confidence** in each unit's club, by resampling units, business cycles or the
+    end of the sample;
+  - warnings when a club fails its own convergence test;
+- **data preparation**: HP filtering, long-to-wide reshaping and handling of missing values;
+- **plots** you can customize, and a **command-line tool**.
 
 Results match the R package to within 1e-8 (see [Validation](#validation)).
 
@@ -70,9 +72,21 @@ In Jupyter, a result displays as a summary table.
 
 Pass a `pandas.DataFrame` with **units in rows** (the index holds unique unit names) and
 **time periods in columns**. Long data (one row per unit and year) can be converted with
-`cc.wide_panel(df, unit="region", time="year", value="gdp_pc")`. Data must not contain
-missing values; the error message lists the units that do. As in Phillips and Sul, you
-will usually HP-filter the log of the variable first.
+`cc.wide_panel(df, unit="region", time="year", value="gdp_pc")`. As in Phillips and Sul,
+you will usually HP-filter the log of the variable first.
+
+**Missing values.** The procedure needs a complete panel, and the error message lists the
+units that have gaps. To deal with them:
+- `cc.describe_missing(df)` shows the gaps of each unit (leading, trailing, interior);
+- `cc.fill_gaps(df, max_gap=2, log=True)` interpolates *interior* gaps of up to 2 periods,
+  in logs;
+- `cc.balance(df)` drops units that are still incomplete, and
+  `cc.balance(df, "trim_periods")` instead keeps the longest run of periods that every unit
+  has.
+
+Missing values at the start or end of a series are never filled: that would invent the
+transition path the test examines. Filled values also feed the HP filter, so check how they
+affect the clubs with `bootstrap()` or `sensitivity()`.
 
 Units are sorted by the last period before clustering. To sort by a different column, use
 `ref_col=`. To sort by the average of the last share of periods, use `sort_fraction=0.1`,
@@ -81,6 +95,15 @@ like Stata's `psecta, fr()`; this makes the ordering less sensitive to a single 
 
 For a paper table that lists the members of each club, use `clubs.summary(members=True)`.
 You can then export it with `.to_latex()` or `.to_csv()`.
+
+### Clubs that fail their own test
+
+With the default `cstar_method="fixed"` (as in R), the procedure can accept a club even
+though the club as a whole fails the log t test (t ≤ −1.65). On the GDP data this happens to
+club 1 with AQSB (t = −4.98). `find_clubs` warns when this happens (`ClubConvergenceWarning`),
+`summary()` has a `converges` column, and `result.failing_clubs` lists the failing clubs.
+Phillips and Sul (2007) suggest raising `c*` in that case, which is what
+`cstar_method="incremental"` does.
 
 ## Plots
 
@@ -178,6 +201,39 @@ stripes are units that change clubs between runs.
 
 ![Co-membership across 32 runs](docs/co_membership.png)
 
+## Bootstrap confidence in club membership
+
+`sensitivity()` varies the *settings*. `bootstrap()` perturbs the *data*, and tells you how
+confident you can be that a unit belongs to its club. There are three resampling schemes:
+
+| `method=` | What it varies | Question it answers |
+|---|---|---|
+| `"units"` (default) | Cluster random 80% subsets of the units | Does a unit's club depend on which other units are in the sample? |
+| `"cycle"` | Block-resample the HP cyclical component and filter again (needs the *unfiltered* data and `filter_lambda=`) | Is the club robust to business-cycle noise? |
+| `"endpoint"` | Drop the last 1…`max_drop` periods | Does the club hinge on the last years, where the HP filter is least reliable? |
+
+Years are never resampled independently: the log t regression depends on the time index, so
+shuffling periods would be meaningless. The cycle bootstrap uses the same blocks for every
+unit, so shocks that hit all units at once stay common.
+
+```python
+runs = cc.bootstrap(data, 200, method="units", seed=0)   # ~3 s on the GDP data
+runs.stability()          # each unit's confidence in its full-sample club, and runs included
+runs.uncertain(0.8)       # units below 80% confidence, least confident first
+runs.plot_stability()     # figure below
+runs.plot()               # co-membership heatmap, as for sensitivity()
+
+raw = np.log(cc.load_gdp())
+cc.bootstrap(raw, 200, method="cycle", filter_lambda=400, merge="PS", seed=0)
+```
+
+![Membership confidence across 200 bootstrap resamples](docs/stability.png)
+
+On the GDP data, Somalia, Burkina Faso and Vanuatu are among the 8 least confident units
+under all three schemes. Club 1 is solid when units are resampled (every member ≥ 0.94) and
+fairly solid under cycle resampling (≥ 0.80). Dropping the last years, however, moves some of
+its members (down to 0.45), so the end of the sample matters for the top club.
+
 ## Command line
 
 ```bash
@@ -188,13 +244,19 @@ convergence-clubs gdp.csv --log --hp-filter --merge PS \
 The CSV file must have units in rows and periods in columns. For a long-format file, use
 `--long COUNTRY YEAR GDP`, giving the unit, period and value columns. Other options:
 - `--time-trim 1/3`, `--hac AQSB`, `--cstar`, `--cstar-method incremental`;
-- `--sort-fraction 0.1`, `--merge-divergent`;
+- `--sort-fraction 0.1`;
+- `--merge-divergent`, optionally with `--joint-divergent`;
+- `--fill-gaps 2` and `--drop-incomplete` for panels with missing values;
 - `--details`, which prints the members of every club;
 - `--summary out.csv --members`, which writes the summary table with the members of each club.
 
 `--sensitivity` reruns the clustering with `time_trim` set to 1/3, 0.25, 0.3 and 0.4, each with
 FQSB and AQSB. It prints the agreement table and the least stable units, and
 `--sensitivity-plot FILE` saves the heatmap.
+
+`--bootstrap 200 --bootstrap-method units|cycle|endpoint --seed 0` reports the mean agreement
+with the full-sample clubs and the units with confidence below 0.8. With `--hp-filter`, every
+replicate is filtered again.
 
 Run `convergence-clubs --help` for the full list, or call it as `python -m convergence_clubs`.
 
@@ -226,6 +288,9 @@ Run `convergence-clubs --help` for the full list, or call it as `python -m conve
 - the HP filter (`mFilter::hpfilter`), and the results published in the R Journal paper.
 
 Club memberships match exactly, and the statistics match to a relative tolerance of 1e-8.
+The reference file records the R and package versions that produced it. A weekly CI job
+(`.github/workflows/r-parity.yml`) regenerates it with the current CRAN release and reruns
+these tests, so changes upstream are caught.
 
 ### Known differences from the R package
 
@@ -234,6 +299,10 @@ Club memberships match exactly, and the statistics match to a relative tolerance
   This Python port reports the core group's own regression. Memberships are the same.
 - If the Andrews bandwidth is zero (residual scores with no autocorrelation), `sandwich`
   raises an error. This port falls back to White's estimator.
+
+- `merge_divergent(joint_first=True)` adds the first step of the von Lyncker and
+  Thoennissen (2017) procedure: test all divergent units together, and make them a new club
+  if they converge. The R package skips this step, so it is off by default.
 
 Some other quirks are kept on purpose so that results stay identical to R:
 - the fixed-bandwidth HAC estimator follows Phillips and Sul's GAUSS code;

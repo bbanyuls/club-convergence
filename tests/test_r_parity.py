@@ -10,6 +10,8 @@ import convergence_clubs as cc
 from .conftest import FIXTURES
 
 REFERENCE = json.loads(FIXTURES.read_text())
+# Some reference configurations produce clubs that fail their own test, as in R.
+pytestmark = pytest.mark.filterwarnings("ignore::convergence_clubs.ClubConvergenceWarning")
 RTOL = 1e-8
 
 

@@ -12,7 +12,8 @@ def clubs(filtered_gdp):
 
 @pytest.fixture(scope="module")
 def aqsb(filtered_gdp):
-    return cc.find_clubs(filtered_gdp, hac_method="AQSB")
+    with pytest.warns(cc.ClubConvergenceWarning, match="club1"):
+        return cc.find_clubs(filtered_gdp, hac_method="AQSB")
 
 
 def test_container_protocol(clubs):
@@ -56,7 +57,10 @@ def test_transition_paths(clubs, filtered_gdp):
 
 def test_summary_and_text(clubs):
     summary = clubs.summary()
-    assert list(summary.columns) == ["n_units", "beta", "std_err", "t_value", "p_value", "cstar"]
+    assert list(summary.columns) == [
+        "n_units", "beta", "std_err", "t_value", "p_value", "converges", "cstar",
+    ]  # fmt: skip
+    assert summary["converges"].all() and clubs.failing_clubs == ()
     assert "club7" in str(clubs)
     assert repr(clubs) == "<ConvergenceClubs: 7 clubs, 0 divergent units, hac_method='FQSB'>"
     assert "merged_clubs" in clubs.merge().summary().columns
@@ -66,7 +70,8 @@ def test_html_repr(clubs, filtered_gdp):
     html = clubs._repr_html_()
     assert "7 convergence clubs" in html and "<table" in html
     data = filtered_gdp.rename(index={"Liberia": "A & <B>"})
-    html = cc.find_clubs(data, hac_method="AQSB")._repr_html_()
+    with pytest.warns(cc.ClubConvergenceWarning):
+        html = cc.find_clubs(data, hac_method="AQSB")._repr_html_()
     assert "A &amp; &lt;B&gt;" in html
 
 
@@ -113,3 +118,25 @@ def test_rejects_missing_values(filtered_gdp):
         cc.find_clubs(bad)
     with pytest.raises(TypeError):
         cc.find_clubs(pd.DataFrame({"a": ["x", "y"], "b": ["z", "w"]}))
+
+
+def test_failing_clubs_are_flagged(aqsb):
+    assert aqsb.failing_clubs == ("club1",)
+    assert not aqsb["club1"].converges and aqsb["club1"].model.t_value < cc.CRITICAL_VALUE
+    assert aqsb.summary()["converges"].tolist() == [False, True, True, True, True]
+    assert "does not pass its own log t test" in str(aqsb)
+
+
+def test_joint_first_divergent_merge(clubs):
+    # Pretend club7 (Congo, Dem. Rep. and Liberia, which converge together) were divergent.
+    last = clubs["club7"]
+    result = clubs._replace(clubs=clubs.clubs[:-1], divergent_ids=last.ids)
+    joint = result.merge_divergent(joint_first=True)
+    assert joint.n_divergent == 0 and joint.n_clubs == 7
+    assert joint["club7"].ids == last.ids and joint["club7"].model == last.model
+    assert "converge together" in joint["club7"].notes[0]
+    # Default (R) behaviour: units are assigned one by one to existing clubs instead.
+    pairwise = result.merge_divergent()
+    assert pairwise.n_clubs == 6
+    merged = result.merge("PS", merge_divergent=True, joint_first=True)
+    assert merged.clubs[-1].merged_from == ("divergent",)

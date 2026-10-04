@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import warnings
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -11,10 +12,11 @@ import numpy as np
 import pandas as pd
 
 from . import __version__
-from .clustering import find_clubs
+from .bootstrap import bootstrap
+from .clustering import ClubConvergenceWarning, find_clubs
 from .filters import hp_filter
 from .logt import CRITICAL_VALUE
-from .panel import wide_panel
+from .panel import balance, fill_gaps, wide_panel
 from .sensitivity import sensitivity
 
 
@@ -50,6 +52,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     data.add_argument("--log", action="store_true", help="take logs before filtering")
     data.add_argument(
+        "--fill-gaps",
+        type=int,
+        metavar="N",
+        help="interpolate interior gaps of up to N periods (in logs with --log)",
+    )
+    data.add_argument(
+        "--drop-incomplete", action="store_true", help="drop units that still have missing values"
+    )
+    data.add_argument(
         "--hp-filter",
         nargs="?",
         const=400.0,
@@ -70,6 +81,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--merge-divergent", action="store_true", help="also assign divergent units to clubs"
     )
     method.add_argument("--estar", type=float, default=CRITICAL_VALUE)
+    method.add_argument(
+        "--joint-divergent",
+        action="store_true",
+        help="with --merge-divergent, first test all divergent units together (vLT step 1)",
+    )
     method.add_argument(
         "--sort-fraction",
         type=_fraction,
@@ -97,10 +113,22 @@ def build_parser() -> argparse.ArgumentParser:
     robust.add_argument(
         "--sensitivity-plot", type=Path, metavar="FILE", help="save the co-membership heatmap"
     )
+    robust.add_argument(
+        "--bootstrap", type=int, metavar="N", help="confidence in memberships from N resamples"
+    )
+    robust.add_argument(
+        "--bootstrap-method",
+        choices=["units", "cycle", "endpoint"],
+        default="units",
+        help="units: subsample units; cycle: block-resample the HP cycle (needs --hp-filter); "
+        "endpoint: drop the last periods",
+    )
+    robust.add_argument("--seed", type=int, help="random seed for --bootstrap")
     return parser
 
 
-def _read(args: argparse.Namespace) -> pd.DataFrame:
+def _read(args: argparse.Namespace) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """The data before HP filtering (but after logs) and the data to cluster."""
     if args.long:
         unit, time, value = args.long
         data = wide_panel(pd.read_csv(args.csv, sep=args.sep), unit=unit, time=time, value=value)
@@ -113,34 +141,51 @@ def _read(args: argparse.Namespace) -> pd.DataFrame:
         pass
     if args.log:
         data = np.log(data)
+    if args.fill_gaps:
+        data = fill_gaps(data, max_gap=args.fill_gaps)
+    if args.drop_incomplete:
+        complete = balance(data)
+        if len(complete) < len(data):
+            dropped = data.index.difference(complete.index)
+            print(
+                f"convergence-clubs: dropped {_plural(len(dropped), 'incomplete unit')}: "
+                f"{'; '.join(map(str, dropped[:10]))}{' ...' if len(dropped) > 10 else ''}",
+                file=sys.stderr,
+            )
+        data = complete
     if args.hp_filter is not None:
-        data = hp_filter(data, lamb=args.hp_filter)
-    return data
+        return data, hp_filter(data, lamb=args.hp_filter)
+    return data, data
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        data = _read(args)
+        raw, data = _read(args)
         options = {
             "cstar_method": args.cstar_method,
             "cstar_increment": args.cstar_increment,
             "cstar_cap": args.cstar_cap,
         }
-        result = find_clubs(
-            data,
-            time_trim=args.time_trim,
-            hac_method=args.hac,
-            cstar=args.cstar,
-            sort_fraction=args.sort_fraction,
-            **options,
-        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", ClubConvergenceWarning)
+            result = find_clubs(
+                data,
+                time_trim=args.time_trim,
+                hac_method=args.hac,
+                cstar=args.cstar,
+                sort_fraction=args.sort_fraction,
+                **options,
+            )
+        for w in caught:
+            print(f"convergence-clubs: warning: {w.message}", file=sys.stderr)
+        divergent_options = {"estar": args.estar, "joint_first": args.joint_divergent}
         if args.merge:
             result = result.merge(
-                args.merge, merge_divergent=args.merge_divergent, estar=args.estar
+                args.merge, merge_divergent=args.merge_divergent, **divergent_options
             )
         elif args.merge_divergent:
-            result = result.merge_divergent(estar=args.estar)
+            result = result.merge_divergent(**divergent_options)
     except (OSError, ValueError, TypeError, KeyError) as exc:
         print(f"convergence-clubs: error: {exc}", file=sys.stderr)
         return 1
@@ -173,6 +218,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, ValueError, TypeError, KeyError) as exc:
             print(f"convergence-clubs: error in sensitivity analysis: {exc}", file=sys.stderr)
             return 1
+    if args.bootstrap:
+        try:
+            _report_bootstrap(args, raw, options)
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            print(f"convergence-clubs: error in bootstrap: {exc}", file=sys.stderr)
+            return 1
     return 0
 
 
@@ -196,6 +247,32 @@ def _report_sensitivity(args: argparse.Namespace, data: pd.DataFrame, options: d
     if args.sensitivity_plot:
         ax = runs.plot(theme=args.theme)
         ax.figure.savefig(args.sensitivity_plot, dpi=150)
+
+
+def _report_bootstrap(args: argparse.Namespace, raw: pd.DataFrame, options: dict) -> None:
+    runs = bootstrap(
+        raw,
+        args.bootstrap,
+        method=args.bootstrap_method,
+        filter_lambda=args.hp_filter,
+        merge=args.merge,
+        merge_divergent=args.merge_divergent,
+        seed=args.seed,
+        time_trim=args.time_trim,
+        hac_method=args.hac,
+        cstar=args.cstar,
+        sort_fraction=args.sort_fraction,
+        **options,
+    )
+    table = runs.table().iloc[1:]
+    print(
+        f"\nbootstrap ({args.bootstrap_method}, {len(table)} replicates): mean agreement with "
+        f"the full-sample clubs (ARI) {table['ari_vs_baseline'].mean():.3f}"
+    )
+    uncertain = runs.uncertain(0.8)
+    print(f"\n{_plural(len(uncertain), 'unit')} with confidence below 0.8\n")
+    if len(uncertain):
+        print(uncertain.head(20).to_string(float_format=lambda v: f"{v:.2f}"))
 
 
 def _unique(values: list) -> list:

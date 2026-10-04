@@ -1,0 +1,37 @@
+name: R parity
+
+# Regenerates the reference results with the current CRAN release of the
+# R package ConvergenceClubs and checks that the Python port still matches.
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # every Monday
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "scripts/generate_r_fixtures.R"
+      - "tests/fixtures/**"
+      - "tests/test_r_parity.py"
+      - ".github/workflows/r-parity.yml"
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true  # binary packages
+      - name: Install R packages
+        run: Rscript -e 'install.packages(c("ConvergenceClubs", "mFilter", "jsonlite"))'
+      - name: Regenerate the reference results
+        run: Rscript scripts/generate_r_fixtures.R
+      - name: Versions used
+        run: python3 -c "import json; print(json.load(open('tests/fixtures/r_reference.json'))['meta'])"
+      - name: Differences from the committed reference (informational)
+        run: git diff --stat -- tests/fixtures || true
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - run: uv sync
+      - name: Python port against the fresh R results
+        run: uv run pytest tests/test_r_parity.py -q

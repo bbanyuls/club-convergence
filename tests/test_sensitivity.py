@@ -46,7 +46,8 @@ def test_co_membership(runs):
 
 def test_stability(runs):
     st = runs.stability()
-    assert list(st.columns) == ["baseline_club", "stability", "divergent_share"]
+    assert list(st.columns) == ["baseline_club", "stability", "divergent_share", "n_runs"]
+    assert (st["n_runs"] == len(runs)).all()
     assert st["stability"].between(0, 1).all()
     assert (st["baseline_club"] == runs.baseline.memberships()).all()
 
@@ -59,6 +60,7 @@ def test_ari_reference_values():
     assert _ari(np.arange(4), np.arange(4)) == 1.0
 
 
+@pytest.mark.filterwarnings("ignore::convergence_clubs.ClubConvergenceWarning")
 def test_compare_clubs(filtered_gdp):
     fqsb = cc.find_clubs(filtered_gdp)
     merged = fqsb.merge("PS")

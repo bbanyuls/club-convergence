@@ -26,6 +26,7 @@ def merge_clubs(
     threshold: float = CRITICAL_VALUE,
     merge_divergent: bool = False,
     estar: float = CRITICAL_VALUE,
+    joint_first: bool = False,
     time_trim: float | None = None,
 ) -> ConvergenceClubs:
     """Merge adjacent convergence clubs.
@@ -46,6 +47,9 @@ def merge_clubs(
         (see :func:`merge_divergent`).
     estar
         Critical value used when merging divergent units.
+    joint_first
+        When merging divergent units, first test them all together
+        (see :func:`merge_divergent`).
     time_trim
         Overrides the ``time_trim`` used to find ``result``.
     """
@@ -94,7 +98,7 @@ def merge_clubs(
         merged = result._replace(clubs=tuple(new), time_trim=time_trim)
 
     if merge_divergent:
-        return _merge_divergent(merged, time_trim, estar)
+        return _merge_divergent(merged, time_trim, estar, joint_first)
     return merged
 
 
@@ -102,6 +106,7 @@ def merge_divergent(
     result: ConvergenceClubs,
     *,
     estar: float = CRITICAL_VALUE,
+    joint_first: bool = False,
     time_trim: float | None = None,
 ) -> ConvergenceClubs:
     """Assign divergent units to clubs (von Lyncker and Thoennissen, 2017).
@@ -109,14 +114,32 @@ def merge_divergent(
     Repeatedly tests every (club, divergent unit) pair and adds the unit with
     the highest t-statistic to its club, as long as that t-statistic is above
     ``estar``.
+
+    With ``joint_first=True`` the divergent units are first tested all
+    together and, if they converge (t > ``estar``), form a new club. This is
+    step 1 of the procedure as described by von Lyncker and Thoennissen
+    (2017); the R package skips it, so it is off by default.
     """
     time_trim = result.time_trim if time_trim is None else time_trim
-    return _merge_divergent(result, time_trim, estar)
+    return _merge_divergent(result, time_trim, estar, joint_first)
 
 
-def _merge_divergent(result: ConvergenceClubs, time_trim: float, estar: float) -> ConvergenceClubs:
+def _merge_divergent(
+    result: ConvergenceClubs, time_trim: float, estar: float, joint_first: bool = False
+) -> ConvergenceClubs:
     clubs = list(result.clubs)
     divergent = list(result.divergent_ids)
+    if joint_first and len(divergent) > 1:
+        model = _test(result, divergent, time_trim)
+        if model.t_value > estar:
+            club = Club(
+                f"club{len(clubs) + 1}",
+                tuple(divergent),
+                model,
+                merged_from=("divergent",) if result.is_merged else None,
+                notes=("formed by the divergent units, which converge together",),
+            )
+            return result._replace(clubs=(*clubs, club), divergent_ids=(), time_trim=time_trim)
     if not clubs:
         return result
 

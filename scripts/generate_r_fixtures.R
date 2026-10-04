@@ -61,7 +61,16 @@ datasets <- list(
     sim3 = simulate_panel(3, n = 60, t = 40)
 )
 
-fixtures <- list(datasets = list(), log_t = list(), find_clubs = list(), merge_clubs = list())
+fixtures <- list(
+    meta = list(
+        R = R.version.string,
+        packages = lapply(
+            c(ConvergenceClubs = "ConvergenceClubs", sandwich = "sandwich", mFilter = "mFilter"),
+            function(p) as.character(packageVersion(p))
+        )
+    ),
+    datasets = list(), log_t = list(), find_clubs = list(), merge_clubs = list()
+)
 
 for (dn in names(datasets)) {
     df <- datasets[[dn]]

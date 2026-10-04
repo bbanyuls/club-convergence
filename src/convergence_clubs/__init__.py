@@ -3,7 +3,8 @@
 A Python port of the R package ConvergenceClubs (Sichera and Pizzuto, 2019).
 """
 
-from .clustering import find_clubs
+from .bootstrap import bootstrap
+from .clustering import ClubConvergenceWarning, find_clubs
 from .datasets import load_filtered_gdp, load_gdp
 from .filters import hp_filter
 from .logt import (
@@ -15,7 +16,7 @@ from .logt import (
     relative_transition,
 )
 from .merging import merge_clubs, merge_divergent
-from .panel import wide_panel
+from .panel import balance, describe_missing, fill_gaps, wide_panel
 from .plotting import (
     DARK,
     LIGHT,
@@ -25,6 +26,7 @@ from .plotting import (
     plot_co_membership,
     plot_cross_sectional_variation,
     plot_log_t,
+    plot_stability,
     plot_transition_paths,
 )
 from .results import Club, ConvergenceClubs
@@ -42,13 +44,18 @@ __all__ = [
     "DARK",
     "LIGHT",
     "Club",
+    "ClubConvergenceWarning",
     "ConvergenceClubs",
     "LogTResult",
     "SensitivityResult",
     "Theme",
     "adjusted_rand_index",
+    "balance",
+    "bootstrap",
     "compare_clubs",
     "cross_sectional_variation",
+    "describe_missing",
+    "fill_gaps",
     "find_clubs",
     "hp_filter",
     "load_filtered_gdp",
@@ -62,6 +69,7 @@ __all__ = [
     "plot_co_membership",
     "plot_cross_sectional_variation",
     "plot_log_t",
+    "plot_stability",
     "plot_transition_paths",
     "relative_transition",
     "sensitivity",

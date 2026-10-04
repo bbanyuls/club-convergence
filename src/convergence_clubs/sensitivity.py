@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import itertools
+import warnings
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 
-from .clustering import find_clubs
+from .clustering import ClubConvergenceWarning, find_clubs
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -18,6 +20,8 @@ if TYPE_CHECKING:
     from .results import ConvergenceClubs
 
 DIVERGENT = "divergent"
+#: Label of a unit that is not part of a run (e.g. left out of a bootstrap subsample).
+ABSENT = -2
 
 
 def _labels(result: ConvergenceClubs) -> np.ndarray:
@@ -28,12 +32,27 @@ def _labels(result: ConvergenceClubs) -> np.ndarray:
     return labels
 
 
-def _partition(result: ConvergenceClubs) -> np.ndarray:
-    """Labels where every divergent unit is a singleton group."""
-    labels = _labels(result)
+def _aligned_labels(result: ConvergenceClubs, units: pd.Index) -> np.ndarray:
+    """Labels of ``result`` on ``units``, with ``ABSENT`` for units it does not cover."""
+    positions = units.get_indexer(result.data.index)
+    if (positions < 0).any():
+        raise ValueError("a run contains units that are not in the baseline")
+    out = np.full(len(units), ABSENT)
+    out[positions] = _labels(result)
+    return out
+
+
+def _singletons(labels: np.ndarray) -> np.ndarray:
+    """Labels where every divergent unit (-1) is a group of its own."""
+    labels = labels.copy()
     divergent = labels < 0
     labels[divergent] = labels.max(initial=-1) + 1 + np.arange(divergent.sum())
     return labels
+
+
+def _partition(result: ConvergenceClubs) -> np.ndarray:
+    """Labels where every divergent unit is a singleton group."""
+    return _singletons(_labels(result))
 
 
 def adjusted_rand_index(a: ConvergenceClubs, b: ConvergenceClubs) -> float:
@@ -73,12 +92,19 @@ def compare_clubs(a: ConvergenceClubs, b: ConvergenceClubs) -> pd.DataFrame:
 
 @dataclass(frozen=True, eq=False)
 class SensitivityResult:
-    """Clubs found with every combination of settings in a grid.
+    """Clubs found in several runs: a grid of settings or resamples of the data.
 
-    The first run is the baseline that the others are compared to.
+    The first run is the baseline that the others are compared to. Runs may
+    cover a subset of the baseline units (bootstrap subsamples): shares are
+    then computed over the runs that include the units involved.
     """
 
     runs: tuple[tuple[dict[str, Any], ConvergenceClubs], ...]
+
+    @cached_property
+    def _label_matrix(self) -> np.ndarray:
+        """runs x units labels (club index, -1 divergent, ``ABSENT``)."""
+        return np.array([_aligned_labels(r, self.units) for _, r in self.runs])
 
     def __len__(self) -> int:
         return len(self.runs)
@@ -96,15 +122,21 @@ class SensitivityResult:
 
     def table(self) -> pd.DataFrame:
         """One row per run: settings, number of clubs, club sizes and agreement with baseline."""
+        base = self._label_matrix[0]
         rows = []
-        for params, result in self.runs:
+        for (params, result), labels in zip(self.runs, self._label_matrix, strict=True):
+            present = labels != ABSENT  # agreement is measured on the units of this run
             rows.append(
                 {
                     **{k: "none" if v is None else v for k, v in params.items()},
+                    "n_units": int(present.sum()),
                     "n_clubs": result.n_clubs,
                     "n_divergent": result.n_divergent,
+                    "n_failing": len(result.failing_clubs),
                     "sizes": "-".join(str(len(c)) for c in result.clubs),
-                    "ari_vs_baseline": adjusted_rand_index(self.baseline, result),
+                    "ari_vs_baseline": _ari(
+                        _singletons(base[present]), _singletons(labels[present])
+                    ),
                 }
             )
         return pd.DataFrame(rows)
@@ -112,14 +144,19 @@ class SensitivityResult:
     def co_membership(self) -> pd.DataFrame:
         """Share of runs in which each pair of units belongs to the same club.
 
-        Divergent units are never grouped with anyone; the diagonal is the
-        share of runs in which a unit belongs to some club.
+        Only runs that include both units count. Divergent units are never
+        grouped with anyone; the diagonal is the share of runs in which a
+        unit belongs to some club. Pairs never sampled together are NaN.
         """
-        together = np.zeros((len(self.units),) * 2)
-        for _, result in self.runs:
-            labels = _labels(result)
+        n = len(self.units)
+        together, sampled = np.zeros((n, n)), np.zeros((n, n))
+        for labels in self._label_matrix:
+            present = labels != ABSENT
             together += (labels[:, None] == labels[None, :]) & (labels >= 0)[:, None]
-        return pd.DataFrame(together / len(self.runs), index=self.units, columns=self.units)
+            sampled += present[:, None] & present[None, :]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            share = np.where(sampled > 0, together / sampled, np.nan)
+        return pd.DataFrame(share, index=self.units, columns=self.units)
 
     def stability(self) -> pd.DataFrame:
         """How firmly each unit belongs to its baseline club.
@@ -127,30 +164,46 @@ class SensitivityResult:
         ``stability`` is the average share of runs in which the unit is in
         the same club as each of its baseline club mates (1 = always with
         all of them); ``divergent_share`` is the share of runs in which it
-        is divergent.
+        is divergent; ``n_runs`` is the number of runs that include it.
         """
         share = self.co_membership().to_numpy()
-        base = _labels(self.baseline)
+        labels = self._label_matrix
+        base = labels[0]
         stability = np.full(len(base), np.nan)
         for i, label in enumerate(base):
             mates = np.flatnonzero((base == label) & (np.arange(len(base)) != i))
-            if label >= 0 and mates.size:
-                stability[i] = share[i, mates].mean()
-        divergent = np.mean([_labels(r) < 0 for _, r in self.runs], axis=0)
+            shares = share[i, mates]
+            shares = shares[np.isfinite(shares)]  # mates never sampled with the unit
+            if label >= 0 and shares.size:
+                stability[i] = shares.mean()
+        n_runs = (labels != ABSENT).sum(axis=0)
+        divergent = (labels == -1).sum(axis=0) / n_runs
         return pd.DataFrame(
             {
                 "baseline_club": self.baseline.memberships().to_numpy(),
                 "stability": stability,
                 "divergent_share": divergent,
+                "n_runs": n_runs,
             },
             index=self.units,
         )
+
+    def uncertain(self, threshold: float = 0.8) -> pd.DataFrame:
+        """Units whose :meth:`stability` is below ``threshold``, least stable first."""
+        st = self.stability()
+        return st[st["stability"] < threshold].sort_values("stability")
 
     def plot(self, **kwargs) -> Axes:
         """Co-membership heatmap; see :func:`convergence_clubs.plot_co_membership`."""
         from .plotting import plot_co_membership
 
         return plot_co_membership(self, **kwargs)
+
+    def plot_stability(self, **kwargs) -> Axes:
+        """Per-unit confidence dots; see :func:`convergence_clubs.plot_stability`."""
+        from .plotting import plot_stability
+
+        return plot_stability(self, **kwargs)
 
 
 def sensitivity(
@@ -192,7 +245,7 @@ def sensitivity(
     runs = []
     for values in itertools.product(*grid.values()):
         params = dict(zip(grid, values, strict=True))
-        result = find_clubs(
+        result = _quiet_find_clubs(
             data,
             time_trim=params["time_trim"],
             hac_method=params["hac_method"],
@@ -200,9 +253,23 @@ def sensitivity(
             sort_fraction=params["sort_fraction"],
             **find_kwargs,
         )
-        if params["merge"] is not None:
-            result = result.merge(params["merge"], merge_divergent=merge_divergent)
-        elif merge_divergent:
-            result = result.merge_divergent()
-        runs.append((params, result))
+        runs.append((params, _post_process(result, params["merge"], merge_divergent)))
     return SensitivityResult(tuple(runs))
+
+
+def _quiet_find_clubs(data: pd.DataFrame, **kwargs) -> ConvergenceClubs:
+    """:func:`find_clubs` without failing-club warnings (counted in ``table()`` instead)."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", ClubConvergenceWarning)
+        return find_clubs(data, **kwargs)
+
+
+def _post_process(
+    result: ConvergenceClubs, merge: str | None, merge_divergent: bool
+) -> ConvergenceClubs:
+    """Optional club merging and assignment of divergent units."""
+    if merge is not None:
+        return result.merge(merge, merge_divergent=merge_divergent)
+    if merge_divergent:
+        return result.merge_divergent()
+    return result

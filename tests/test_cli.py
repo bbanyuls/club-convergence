@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 import convergence_clubs as cc
 from convergence_clubs.cli import main
@@ -26,12 +27,14 @@ def test_options_and_divergent_units(tmp_path, capsys):
     csv = tmp_path / "filtered.csv"
     cc.load_filtered_gdp().to_csv(csv, sep=";")
     assert main([str(csv), "--sep", ";", "--hac", "AQSB", "--time-trim", "1/3", "--details"]) == 0
-    out = capsys.readouterr().out
-    assert out.startswith("5 convergence clubs, 3 divergent units")
-    assert "divergent:" in out and "beta:" in out
+    captured = capsys.readouterr()
+    assert captured.out.startswith("5 convergence clubs, 3 divergent units")
+    assert "divergent:" in captured.out and "beta:" in captured.out
+    assert "warning: club1 does not pass the log t test" in captured.err
 
     assert main([str(csv), "--sep", ";", "--hac", "AQSB", "--merge-divergent"]) == 0
-    expected = cc.find_clubs(cc.load_filtered_gdp(), hac_method="AQSB").merge_divergent()
+    with pytest.warns(cc.ClubConvergenceWarning):
+        expected = cc.find_clubs(cc.load_filtered_gdp(), hac_method="AQSB").merge_divergent()
     assert expected.n_divergent == 1
     assert "5 convergence clubs, 1 divergent unit\n" in capsys.readouterr().out
 
@@ -78,3 +81,19 @@ def test_sort_fraction_option(tmp_path, capsys):
     cc.load_filtered_gdp().to_csv(csv)
     assert main([str(csv), "--sort-fraction", "1/34"]) == 0
     assert capsys.readouterr().out.startswith("7 convergence clubs")
+
+
+def test_bootstrap_option(tmp_path, capsys):
+    csv = tmp_path / "gdp.csv"
+    cc.load_gdp().to_csv(csv)
+    args = [str(csv), "--log", "--hp-filter", "--bootstrap", "5", "--seed", "1"]
+    assert main([*args, "--bootstrap-method", "cycle"]) == 0
+    out = capsys.readouterr().out
+    assert "bootstrap (cycle, 5 replicates)" in out and "confidence below 0.8" in out
+
+
+def test_joint_divergent_option(tmp_path, capsys):
+    csv = tmp_path / "f.csv"
+    cc.load_filtered_gdp().to_csv(csv)
+    assert main([str(csv), "--hac", "AQSB", "--merge-divergent", "--joint-divergent"]) == 0
+    assert "1 divergent unit" in capsys.readouterr().out

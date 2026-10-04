@@ -553,6 +553,78 @@ def plot_co_membership(
     return ax
 
 
+def plot_stability(
+    sensitivity: SensitivityResult,
+    *,
+    ax: Axes | None = None,
+    threshold: float | None = 0.8,
+    label: int = 8,
+    theme: str | Theme = "light",
+    colors: Colors = None,
+    title: str | None = "auto",
+) -> Axes:
+    """Confidence of every unit in its baseline club, one row of dots per club.
+
+    Each dot is a unit placed at its :meth:`SensitivityResult.stability`
+    (the share of runs spent with its baseline club mates). Up to ``label``
+    of the least stable units are named (labels that would overlap are
+    skipped) and ``threshold`` is marked.
+    """
+    th = _theme(theme)
+    base = sensitivity.baseline
+    ax = _new_axes(ax, th, figsize=(6.4, 0.9 + 0.5 * max(1, base.n_clubs)))
+    styles = club_styles(base, th, colors)
+    st = sensitivity.stability().dropna(subset=["stability"])
+    rows = {c.name: i for i, c in enumerate(base.clubs)}
+
+    # Units sorted by stability get a repeating vertical offset, so that neighbours
+    # on the x-axis sit apart without suggesting any order in the y direction.
+    st = st.sort_values("stability")
+    rank = st.groupby("baseline_club").cumcount().to_numpy()
+    y = st["baseline_club"].map(rows).to_numpy() + ((rank % 5) - 2) * 0.09
+    for club in base.clubs:
+        mask = (st["baseline_club"] == club.name).to_numpy()
+        ax.scatter(
+            st["stability"].to_numpy()[mask], y[mask], s=34, color=styles[club.name]["color"],
+            edgecolors=th.surface, linewidths=1.2, zorder=3,
+        )  # fmt: skip
+
+    if threshold is not None:
+        ax.axvline(threshold, color=th.ink_muted, linewidth=1, zorder=1)
+        ax.annotate(
+            f"{threshold:g}", (threshold, 0), xycoords=("data", "axes fraction"),
+            xytext=(3, 3), textcoords="offset points", fontsize=th.font_size - 1,
+            color=th.ink_muted,
+        )  # fmt: skip
+
+    _style_axes(ax, th)
+    ax.grid(False)
+    ax.set_yticks(range(base.n_clubs), [c.name for c in base.clubs])
+    ax.set_ylim(base.n_clubs - 0.5, -0.5)
+    ax.set_xlim(min(0.0, st["stability"].min() - 0.05), 1.02)
+    auto = f"Membership confidence across {len(sensitivity) - 1} resamples"
+    _decorate(
+        ax, th, auto if title == "auto" else title, None,
+        xlabel="share of runs with the baseline club mates",
+    )  # fmt: skip
+
+    # Name the least stable units, skipping labels that would overlap.
+    renderer = ax.figure.canvas.get_renderer()
+    placed = []
+    for i in range(min(label, len(st))):
+        text = ax.annotate(
+            str(st.index[i]), (st["stability"].iloc[i], y[i]), xytext=(6, 0),
+            textcoords="offset points", va="center", fontsize=th.font_size - 1,
+            color=th.ink_secondary,
+        )  # fmt: skip
+        box = text.get_window_extent(renderer).expanded(1.05, 1.2)
+        if any(box.overlaps(other) for other in placed):
+            text.remove()
+        else:
+            placed.append(box)
+    return ax
+
+
 # -- grid ----------------------------------------------------------------------
 
 
