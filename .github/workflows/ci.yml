@@ -24,4 +24,7 @@ jobs:
       # for each Python. mypy checks the code as Python 3.10 (pyproject.toml).
       - if: matrix.python-version == '3.13'
         run: uv run mypy
+      - if: matrix.python-version == '3.13'
+        name: Validate CITATION.cff
+        run: uv run --with cffconvert cffconvert --validate
       - run: uv run pytest --cov --cov-report=term

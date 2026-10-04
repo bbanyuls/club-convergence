@@ -1,0 +1,81 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite it as below, together with the
+  methods you use (Phillips and Sul, 2007, 2009) and, where relevant, the
+  R package it ports (Sichera and Pizzuto, 2019).
+type: software
+title: "convergence-clubs: club convergence analysis in Python"
+abstract: >-
+  Phillips and Sul (2007, 2009) log t convergence test, club clustering and
+  merging, validated against the R package ConvergenceClubs and the Stata
+  package psecta; with sensitivity and bootstrap analysis, β- and
+  σ-convergence, distribution dynamics, determinants of club membership,
+  plots, maps and a one-call HTML report.
+authors:
+  - family-names: Banyuls
+    given-names: Bernard
+version: 0.1.0
+license: GPL-3.0-or-later
+repository-code: "https://github.com/bbanyuls/club-convergence"
+keywords:
+  - convergence clubs
+  - club convergence
+  - log t test
+  - Phillips and Sul
+  - economic growth
+  - econometrics
+references:
+  - type: software
+    title: "ConvergenceClubs: A Package for Performing the Phillips and Sul's Club Convergence Clustering Procedure"
+    authors:
+      - family-names: Sichera
+        given-names: Roberto
+      - family-names: Pizzuto
+        given-names: Pietro
+    journal: The R Journal
+    volume: 11
+    issue: 2
+    start: 142
+    end: 151
+    year: 2019
+    doi: 10.32614/RJ-2019-021
+  - type: article
+    title: "Transition modeling and econometric convergence tests"
+    authors:
+      - family-names: Phillips
+        given-names: Peter C. B.
+      - family-names: Sul
+        given-names: Donggyu
+    journal: Econometrica
+    volume: 75
+    issue: 6
+    start: 1771
+    end: 1855
+    year: 2007
+    doi: 10.1111/j.1468-0262.2007.00811.x
+  - type: article
+    title: "Economic transition and growth"
+    authors:
+      - family-names: Phillips
+        given-names: Peter C. B.
+      - family-names: Sul
+        given-names: Donggyu
+    journal: Journal of Applied Econometrics
+    volume: 24
+    issue: 7
+    start: 1153
+    end: 1185
+    year: 2009
+    doi: 10.1002/jae.1080
+  - type: article
+    title: "Econometric convergence test and club clustering using Stata"
+    authors:
+      - family-names: Du
+        given-names: Kerui
+    journal: The Stata Journal
+    volume: 17
+    issue: 4
+    start: 882
+    end: 900
+    year: 2017
+    doi: 10.1177/1536867X1801700407

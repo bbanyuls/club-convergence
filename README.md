@@ -625,6 +625,19 @@ uv run python scripts/make_figures.py  # regenerate the figures in docs/
 - Andrews, D. W. K. (1991). Heteroskedasticity and autocorrelation consistent covariance
   matrix estimation. *Econometrica*, 59(3), 817-858.
 
+## How to cite
+
+If you use this package, please cite it together with the methods you apply. `CITATION.cff`
+has the details: GitHub's "Cite this repository" button and reference managers read it.
+
+- the software: Banyuls, B. *convergence-clubs: club convergence analysis in Python*,
+  <https://github.com/bbanyuls/club-convergence>;
+- the method: Phillips and Sul (2007, 2009);
+- the R package this ports, if you compare with it: Sichera and Pizzuto (2019);
+- β/σ/dynamics, Stata conventions or the bundled data: the references above.
+
+Changes are listed in [`CHANGELOG.md`](CHANGELOG.md).
+
 ## License
 
 GPL-3.0-or-later. This package is a derivative of the R package ConvergenceClubs
