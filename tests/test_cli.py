@@ -152,3 +152,26 @@ def test_html_option(tmp_path, capsys):
     cc.load_filtered_gdp().to_csv(csv)
     assert main([str(csv), "--html", str(page)]) == 0
     assert page.stat().st_size > 10_000
+
+
+def test_stata_convention_option(tmp_path, capsys):
+    from pathlib import Path
+
+    mendez = pd.read_csv(Path(__file__).parent / "fixtures" / "mendez2020_stata.csv")
+    data = mendez[mendez["sample"] == "hiNo"][["country", "year", "log_h"]]
+    csv = tmp_path / "h.csv"
+    data.to_csv(csv, index=False)
+    base = [str(csv), "--long", "country", "year", "log_h", "--time-trim", "0.333"]
+    assert main([*base, "--convention", "Stata"]) == 0
+    stata = capsys.readouterr().out
+    assert stata.startswith("5 convergence clubs, 0 divergent units")  # as psecta
+    assert main(base) == 0
+    assert capsys.readouterr().out.startswith("4 convergence clubs")  # R: max |t| core
+    assert main([*base, "--core-rule", "max_t"]) == 0
+    assert capsys.readouterr().out.startswith("5 convergence clubs")
+    assert main([*base, "--convention", "Stata", "--merge", "PS", "--iterate-merge"]) == 0
+    assert capsys.readouterr().out.startswith("3 convergence clubs")  # as imergeclub
+    assert main([*base, "--divergent-method", "last_club"]) == 1
+    assert "needs --merge" in capsys.readouterr().err
+    assert main([*base, "--convention", "Stata", "--sensitivity"]) == 0
+    assert "sensitivity (" in capsys.readouterr().out

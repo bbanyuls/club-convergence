@@ -73,12 +73,29 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     method = parser.add_argument_group("clustering")
-    method.add_argument("--time-trim", type=_fraction, default=1 / 3, help="e.g. 1/3 (default)")
+    method.add_argument(
+        "--convention",
+        choices=["R", "Stata"],
+        default="R",
+        help="reproduce the R package ConvergenceClubs (default) or Stata's psecta",
+    )
+    method.add_argument(
+        "--time-trim", type=_fraction, help="e.g. 1/3 (default with R) or 0.3 (Stata)"
+    )
     method.add_argument("--hac", choices=["FQSB", "AQSB"], default="FQSB")
     method.add_argument("--cstar", type=float, default=0.0)
-    method.add_argument("--cstar-method", choices=["fixed", "incremental"], default="fixed")
-    method.add_argument("--cstar-increment", type=float, default=0.1)
-    method.add_argument("--cstar-cap", type=float, default=3.0)
+    method.add_argument(
+        "--cstar-method",
+        choices=["fixed", "incremental"],
+        help="default: fixed (R), incremental (Stata)",
+    )
+    method.add_argument("--cstar-increment", type=float, help="default: 0.1 (R), 0.05 (Stata)")
+    method.add_argument("--cstar-cap", type=float, help="default: 3 (R), 50 (Stata)")
+    method.add_argument(
+        "--core-rule",
+        choices=["max_t", "max_abs_t"],
+        help="core group: largest t (paper, Stata) or largest |t| (R)",
+    )
     method.add_argument("--merge", choices=["PS", "vLT"], help="merge clubs with this method")
     method.add_argument(
         "--merge-divergent", action="store_true", help="also assign divergent units to clubs"
@@ -88,6 +105,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--joint-divergent",
         action="store_true",
         help="with --merge-divergent, first test all divergent units together (vLT step 1)",
+    )
+    method.add_argument(
+        "--iterate-merge",
+        action="store_true",
+        help="repeat the merging pass until no clubs merge (Stata imergeclub, imore)",
+    )
+    method.add_argument(
+        "--divergent-method",
+        choices=["pairwise", "last_club"],
+        default="pairwise",
+        help="with --merge and --merge-divergent: pairwise (vLT, R) or all divergent units "
+        "into the last club (Stata imergeclub, mdiv)",
     )
     method.add_argument(
         "--sort-fraction",
@@ -203,7 +232,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             "cstar_method": args.cstar_method,
             "cstar_increment": args.cstar_increment,
             "cstar_cap": args.cstar_cap,
+            "convention": args.convention,
+            "core_rule": args.core_rule,
         }
+        if args.divergent_method == "last_club" and not args.merge:
+            raise ValueError("--divergent-method last_club needs --merge")
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always", ClubConvergenceWarning)
             result = find_clubs(
@@ -216,13 +249,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         for w in caught:
             print(f"convergence-clubs: warning: {w.message}", file=sys.stderr)
-        divergent_options = {"estar": args.estar, "joint_first": args.joint_divergent}
+        args.time_trim = result.time_trim  # resolved from the convention
+        merge_options = {
+            "estar": args.estar,
+            "joint_first": args.joint_divergent,
+            "iterate": args.iterate_merge,
+            "divergent_method": args.divergent_method,
+        }
+        args.merge_options = merge_options
         if args.merge:
-            result = result.merge(
-                args.merge, merge_divergent=args.merge_divergent, **divergent_options
-            )
+            result = result.merge(args.merge, merge_divergent=args.merge_divergent, **merge_options)
         elif args.merge_divergent:
-            result = result.merge_divergent(**divergent_options)
+            result = result.merge_divergent(estar=args.estar, joint_first=args.joint_divergent)
     except (OSError, ValueError, TypeError, KeyError) as exc:
         print(f"convergence-clubs: error: {exc}", file=sys.stderr)
         return 1
@@ -315,6 +353,7 @@ def _report_sensitivity(args: argparse.Namespace, data: pd.DataFrame, options: d
         merge=[args.merge],
         sort_fraction=[args.sort_fraction],
         merge_divergent=args.merge_divergent,
+        merge_options=args.merge_options,
         **options,
     )
     table = runs.table().drop(columns=["cstar", "merge", "sort_fraction"])
@@ -391,6 +430,7 @@ def _report_bootstrap(args: argparse.Namespace, raw: pd.DataFrame, options: dict
         filter_lambda=args.hp_filter,
         merge=args.merge,
         merge_divergent=args.merge_divergent,
+        merge_options=args.merge_options,
         seed=args.seed,
         time_trim=args.time_trim,
         hac_method=args.hac,

@@ -221,6 +221,7 @@ def sensitivity(
     merge: Sequence[str | None] = (None,),
     sort_fraction: Sequence[float] = (0.0,),
     merge_divergent: bool = False,
+    merge_options: Mapping[str, Any] | None = None,
     **find_kwargs,
 ) -> SensitivityResult:
     """Run the clustering for every combination of settings.
@@ -230,7 +231,8 @@ def sensitivity(
     grid is their product, in that order, so the first value of each forms
     the baseline run. Other keyword arguments are passed to
     :func:`find_clubs` unchanged. With ``merge_divergent=True`` divergent
-    units are assigned to clubs in every run (after merging, if any).
+    units are assigned to clubs in every run (after merging, if any);
+    ``merge_options`` are passed to :func:`merge_clubs` (e.g. ``iterate``).
 
     Examples
     --------
@@ -259,7 +261,9 @@ def sensitivity(
             sort_fraction=params["sort_fraction"],
             **find_kwargs,
         )
-        runs.append((params, _post_process(result, params["merge"], merge_divergent)))
+        runs.append(
+            (params, _post_process(result, params["merge"], merge_divergent, merge_options))
+        )
     return SensitivityResult(tuple(runs))
 
 
@@ -271,11 +275,16 @@ def _quiet_find_clubs(data: pd.DataFrame, **kwargs) -> ConvergenceClubs:
 
 
 def _post_process(
-    result: ConvergenceClubs, merge: str | None, merge_divergent: bool
+    result: ConvergenceClubs,
+    merge: str | None,
+    merge_divergent: bool,
+    merge_options: Mapping[str, Any] | None = None,
 ) -> ConvergenceClubs:
     """Optional club merging and assignment of divergent units."""
+    options = dict(merge_options or {})
     if merge is not None:
-        return result.merge(merge, merge_divergent=merge_divergent)
+        return result.merge(merge, merge_divergent=merge_divergent, **options)
     if merge_divergent:
-        return result.merge_divergent()
+        keep = {"estar", "joint_first", "time_trim"}
+        return result.merge_divergent(**{k: v for k, v in options.items() if k in keep})
     return result

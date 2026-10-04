@@ -29,7 +29,9 @@ It implements:
 - **plots** you can customize, **interactive charts**, **maps** of club membership, and a
   **command-line tool**.
 
-Results match the R package to within 1e-8 (see [Validation](#validation)).
+Results match the R package to within 1e-8, and with `convention="Stata"` they match the Stata
+package `psecta` (Du, 2018) on the published results of Mendez (2020). See
+[R and Stata conventions](#r-and-stata-conventions) and [Validation](#validation).
 
 ## Installation
 
@@ -98,7 +100,8 @@ affect the clubs with `bootstrap()` or `sensitivity()`.
 
 Units are sorted by the last period before clustering. To sort by a different column, use
 `ref_col=`. To sort by the average of the last share of periods, use `sort_fraction=0.1`,
-like Stata's `psecta, fr()`; this makes the ordering less sensitive to a single year.
+exactly as Stata's `psecta, fr()` does: it averages the last T − int((1 − fr)·T) periods.
+This makes the ordering less sensitive to a single year.
 `data_cols=` restricts which columns are used.
 
 For a paper table that lists the members of each club, use `clubs.summary(members=True)`.
@@ -111,7 +114,34 @@ though the club as a whole fails the log t test (t ≤ −1.65). On the GDP data
 club 1 with AQSB (t = −4.98). `find_clubs` warns when this happens (`ClubConvergenceWarning`),
 `summary()` has a `converges` column, and `result.failing_clubs` lists the failing clubs.
 Phillips and Sul (2007) suggest raising `c*` in that case, which is what
-`cstar_method="incremental"` does.
+`cstar_method="incremental"` does. It is also the default of `convention="Stata"`.
+
+### R and Stata conventions
+
+The two established implementations, the R package ConvergenceClubs and the Stata package
+`psecta` (Du, 2018), can give different clubs on the same data. Reading both sources shows
+why:
+
+| | `convention="R"` (default) | `convention="Stata"` |
+|---|---|---|
+| Core group | the candidate group with the largest \|t\| | the largest t, as in Phillips and Sul (2007); ties go to the larger group |
+| Club that fails its own test | kept (`c*` fixed) | `c*` raised by 0.05 until the club converges, up to 50 |
+| Default `time_trim` | 1/3 | 0.3 (`kq(0.3)`) |
+| Rounding of [rT] | half to even | half up (35 × 0.3 = 10.5 drops 11 periods, not 10) |
+| HAC standard errors | Phillips–Sul GAUSS estimator | the same estimator |
+
+```python
+cc.find_clubs(data, convention="Stata", time_trim=0.333)   # as psecta, kq(0.333)
+clubs.merge("PS")                                           # as imergeclub
+clubs.merge("PS", iterate=True)                             # as imergeclub, imore
+clubs.merge("PS", merge_divergent=True, divergent_method="last_club")   # imergeclub, mdiv
+```
+
+Explicit arguments override a convention's defaults. For example,
+`find_clubs(data, core_rule="max_t")` keeps R's other choices but uses the paper's core rule.
+On the replication data of Mendez (2020), the R convention reproduces 6 of the 8 Stata
+results. The other two differ because of the core rule and because `c*` had to rise to 4.85,
+above R's default cap of 3.
 
 ## Plots
 
@@ -383,7 +413,9 @@ convergence-clubs gdp.csv --log --hp-filter --merge PS \
 
 The CSV file must have units in rows and periods in columns. For a long-format file, use
 `--long COUNTRY YEAR GDP`, giving the unit, period and value columns. Other options:
-- `--time-trim 1/3`, `--hac AQSB`, `--cstar`, `--cstar-method incremental`;
+- `--convention Stata` (or `--core-rule max_t`), `--time-trim 1/3`, `--hac AQSB`, `--cstar`,
+  `--cstar-method incremental`;
+- `--iterate-merge` and `--divergent-method last_club` for Stata's `imergeclub` options;
 - `--sort-fraction 0.1`;
 - `--merge-divergent`, optionally with `--joint-divergent`;
 - `--fill-gaps 2` and `--drop-incomplete` for panels with missing values;
@@ -442,6 +474,14 @@ The reference file records the R and package versions that produced it. A weekly
 (`.github/workflows/r-parity.yml`) regenerates it with the current CRAN release and reruns
 these tests, so changes upstream are caught.
 
+**Stata.** `tests/fixtures/mendez2020_stata.csv` holds the club memberships found with Stata's
+`psecta` and `imergeclub` in the replication files of Mendez (2020). They cover 4 variables
+(labor productivity, capital-output ratio, human capital, TFP), each in 2 samples (26
+high-income and 82 other countries), for 1990–2014. With `convention="Stata"` all 8 initial
+and all 8 merged classifications are reproduced exactly. The fixture is rebuilt with
+`scripts/build_mendez_fixture.R`. The Stata rules above come from the source of `psecta` 2.0
+(Stata Journal, st0503_1).
+
 ### Known differences from the R package
 
 - With `cstar_method="incremental"`, if `c*` exceeds `cstar_cap`, the club falls back to
@@ -476,6 +516,13 @@ uv run python scripts/make_figures.py  # regenerate the figures in docs/
   Applied Econometrics*, 24(7), 1153-1185.
 - von Lyncker, K. and Thoennissen, R. (2017). Regional club convergence in the EU:
   evidence from a panel data analysis. *Empirical Economics*, 52(2), 525-553.
+- Du, K. (2017). Econometric convergence test and club clustering using Stata. *The Stata
+  Journal*, 17(4), 882-900 (update: st0503_1, 2019).
+- Mendez, C. (2020). *Convergence Clubs in Labor Productivity and its Proximate Sources:
+  Evidence from Developed and Developing Countries*. Springer. Code and data:
+  <https://github.com/quarcs-lab/mendez2020-convergence-clubs-code-data> (MIT licence).
+- Feenstra, R. C., Inklaar, R. and Timmer, M. P. (2015). The next generation of the Penn
+  World Table. *American Economic Review*, 105(10), 3150-3182.
 - Sichera, R. and Pizzuto, P. (2019). ConvergenceClubs: A package for performing the
   Phillips and Sul's club convergence clustering procedure. *The R Journal*, 11(2),
   142-151.

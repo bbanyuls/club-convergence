@@ -26,6 +26,7 @@ def bootstrap(
     filter_lambda: float | None = None,
     merge: str | None = None,
     merge_divergent: bool = False,
+    merge_options: dict | None = None,
     seed: int | np.random.Generator | None = None,
     **find_kwargs,
 ) -> SensitivityResult:
@@ -81,7 +82,8 @@ def bootstrap(
     def cluster(frame: pd.DataFrame):
         if filter_lambda is not None:
             frame = hp_filter(frame, lamb=filter_lambda)
-        return _post_process(_quiet_find_clubs(frame, **find_kwargs), merge, merge_divergent)
+        result = _quiet_find_clubs(frame, **find_kwargs)
+        return _post_process(result, merge, merge_divergent, merge_options)
 
     runs = [({"method": method, "replicate": 0}, cluster(data))]
 

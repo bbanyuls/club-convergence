@@ -53,14 +53,33 @@ def _normal_cdf(x: float) -> float:
     return 0.5 * math.erfc(-x / math.sqrt(2.0))
 
 
-def log_t_regression_data(H: np.ndarray, time_trim: float = 1 / 3) -> tuple[np.ndarray, np.ndarray]:
+Rounding = Literal["half_even", "half_up"]
+
+
+def trimmed_periods(n_periods: int, time_trim: float, rounding: Rounding = "half_even") -> int:
+    """Number of initial periods discarded, ``[rT]``.
+
+    R (and Python) round halves to even; Stata's ``logtreg`` rounds them up,
+    so e.g. 35 periods with ``time_trim=0.3`` drop 10 periods in R, 11 in Stata.
+    """
+    x = n_periods * time_trim
+    if rounding == "half_up":
+        return int(math.floor(x + 0.5))
+    if rounding == "half_even":
+        return round(x)
+    raise ValueError("rounding must be 'half_even' or 'half_up'")
+
+
+def log_t_regression_data(
+    H: np.ndarray, time_trim: float = 1 / 3, rounding: Rounding = "half_even"
+) -> tuple[np.ndarray, np.ndarray]:
     """Regressor ``log t`` and response ``log(H_1 / H_t) - 2 log(log t)`` of the log t test.
 
     Only periods ``t = [rT] + 1, ..., T`` (``r = time_trim``) are returned.
     """
     H = np.asarray(H, dtype=float)
     n_t = H.size
-    periods = np.arange(round(n_t * time_trim) + 1, n_t + 1)
+    periods = np.arange(trimmed_periods(n_t, time_trim, rounding) + 1, n_t + 1)
     log_t = np.log(periods)
     with np.errstate(divide="ignore", invalid="ignore"):
         y = np.log(H[0] / H[periods - 1]) - 2.0 * np.log(log_t)
@@ -71,6 +90,7 @@ def log_t_test(
     H: np.ndarray,
     time_trim: float = 1 / 3,
     hac_method: HACMethod = "FQSB",
+    rounding: Rounding = "half_even",
 ) -> LogTResult:
     """Estimate the log t regression of Phillips and Sul (2007, 2009).
 
@@ -88,10 +108,12 @@ def log_t_test(
         Share of initial periods discarded from the regression.
     hac_method
         ``"FQSB"`` or ``"AQSB"``.
+    rounding
+        How ``[rT]`` is rounded: ``"half_even"`` (R) or ``"half_up"`` (Stata).
     """
     if hac_method not in HAC_METHODS:
         raise ValueError(f"hac_method must be one of {HAC_METHODS}, got {hac_method!r}")
-    log_t, y = log_t_regression_data(H, time_trim)
+    log_t, y = log_t_regression_data(H, time_trim, rounding)
     design = np.column_stack([np.ones_like(log_t), log_t])
     coef, *_ = np.linalg.lstsq(design, y, rcond=None)
     resid = y - design @ coef
