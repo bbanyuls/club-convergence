@@ -13,6 +13,7 @@ from .datasets import (
     load_productivity,
     productivity_info,
 )
+from .determinants import DeterminantsResult, club_determinants
 from .dynamics import DynamicsResult, distribution_dynamics
 from .filters import hp_filter
 from .logt import (
@@ -37,6 +38,7 @@ from .plotting import (
     plot_co_membership,
     plot_cross_sectional_variation,
     plot_densities,
+    plot_determinants,
     plot_dynamics,
     plot_log_t,
     plot_sigma,
@@ -64,6 +66,7 @@ __all__ = [
     "Club",
     "ClubConvergenceWarning",
     "ConvergenceClubs",
+    "DeterminantsResult",
     "DynamicsResult",
     "LogTResult",
     "Report",
@@ -74,6 +77,7 @@ __all__ = [
     "balance",
     "beta_convergence",
     "bootstrap",
+    "club_determinants",
     "compare_clubs",
     "country_codes",
     "cross_sectional_variation",
@@ -95,6 +99,7 @@ __all__ = [
     "plot_class_distributions",
     "plot_club",
     "plot_co_membership",
+    "plot_determinants",
     "plot_cross_sectional_variation",
     "plot_densities",
     "plot_dynamics",

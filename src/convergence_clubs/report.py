@@ -207,6 +207,7 @@ def report(
     sigma: bool = True,
     dynamics: bool = True,
     dynamics_lag: int = 5,
+    covariates: pd.DataFrame | None = None,
     title: str = "Convergence analysis",
     dark_mode: bool = True,
     dpi: int = 110,
@@ -232,6 +233,9 @@ def report(
     beta, sigma, dynamics
         Include the classical convergence sections (computed on the
         unfiltered data).
+    covariates
+        Unit-level covariates (e.g. initial conditions); adds an ordered
+        logit of club membership (see :func:`club_determinants`).
     dark_mode
         Also embed dark-theme figures, shown when the reader's system uses a
         dark colour scheme.
@@ -541,6 +545,32 @@ def report(
                         lambda th: dyn.plot_densities(theme=th),
                         "Densities of relative income in the first and last period",
                         "Kernel densities of relative income with a rug of club members",
+                        **image,
+                    ),
+                ],
+            )
+        )
+
+    if covariates is not None:
+        from .determinants import club_determinants
+
+        fit = club_determinants(final, covariates)
+        sections.append(
+            Section(
+                "Determinants of club membership",
+                [
+                    Paragraph(
+                        f"Ordered logit of the club rank (higher = a club with a higher "
+                        f"relative level) on {covariates.shape[1]} covariates, n = {fit.n} "
+                        f"(divergent units excluded), McFadden pseudo-R² = "
+                        f"{fit.pseudo_r2:.3f}. A positive coefficient raises the probability "
+                        "of belonging to a higher club."
+                    ),
+                    Table(fit.summary(), "Coefficients", digits=4),
+                    _image(
+                        lambda th: fit.plot(theme=th),
+                        "Coefficients with 95% intervals",
+                        "Coefficient plot of the ordered logit of club membership",
                         **image,
                     ),
                 ],

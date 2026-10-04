@@ -185,3 +185,21 @@ def test_report_option(tmp_path, capsys):
     assert "report written to" in capsys.readouterr().out
     text = page.read_text(encoding="utf-8")
     assert "Convergence analysis of gdp.csv" in text and "<img " in text
+
+
+def test_determinants_option(tmp_path, capsys):
+    import numpy as np
+
+    csv, cov = tmp_path / "lp.csv", tmp_path / "cov.csv"
+    cc.load_productivity("lp").to_csv(csv)
+    info = cc.productivity_info()
+    pd.DataFrame(
+        {
+            "log_h": np.log(cc.load_productivity("h")[1990]),
+            "africa": (info["region"] == "Africa").astype(float),
+        }
+    ).to_csv(cov)
+    args = [str(csv), "--log", "--hp-filter", "--convention", "Stata", "--time-trim", "0.333"]
+    assert main([*args, "--merge", "PS", "--determinants", str(cov)]) == 0
+    out = capsys.readouterr().out
+    assert "determinants of club membership (ordered logit, n = 104" in out and "log_h" in out

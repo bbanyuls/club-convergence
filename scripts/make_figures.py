@@ -8,6 +8,8 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 
 import convergence_clubs as cc  # noqa: E402
 
@@ -80,6 +82,21 @@ def main() -> None:
         )  # fmt: skip
     ax.figure.set_size_inches(11, 5.6)
     save(ax.figure, "map.png")
+
+    lp = cc.load_productivity("lp")
+    lp_clubs = cc.find_clubs(cc.hp_filter(np.log(lp)), convention="Stata", time_trim=0.333).merge(
+        "PS"
+    )
+    info = cc.productivity_info()
+    covariates = pd.DataFrame(
+        {
+            "log human capital, 1990": np.log(cc.load_productivity("h")[1990]),
+            "log capital-output ratio, 1990": np.log(cc.load_productivity("ky")[1990]),
+            "log TFP, 1990": np.log(cc.load_productivity("tfp")[1990]),
+            "Africa": (info["region"] == "Africa").astype(float),
+        }
+    )
+    save(cc.club_determinants(lp_clubs, covariates).plot().figure, "determinants.png")
 
     example = cc.report(gdp, title="Convergence of GDP per capita, 152 countries, 1970–2003")
     print("wrote", example.save(DOCS / "report-example.html"))
