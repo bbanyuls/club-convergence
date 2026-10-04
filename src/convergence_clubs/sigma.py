@@ -89,6 +89,12 @@ class SigmaResult:
 
         return plot_sigma(self, **kwargs)
 
+    def plot_interactive(self, **kwargs):
+        """Interactive lines (plotly); see :func:`convergence_clubs.interactive.sigma_figure`."""
+        from .interactive import sigma_figure
+
+        return sigma_figure(self, **kwargs)
+
     def __repr__(self) -> str:
         t = self.trend().loc[ALL]
         verdict = "converging" if t["converging"] else "not converging"

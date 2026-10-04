@@ -101,6 +101,9 @@ def build_parser() -> argparse.ArgumentParser:
     out.add_argument("--plot", type=Path, metavar="FILE", help="save transition paths figure")
     out.add_argument("--theme", choices=["light", "dark"], default="light")
     out.add_argument("--units", choices=["lines", "band", "none"], default="lines")
+    out.add_argument(
+        "--html", type=Path, metavar="FILE", help="save interactive transition paths (plotly)"
+    )
     out.add_argument("--details", action="store_true", help="print the members of every club")
     out.add_argument(
         "--members", action="store_true", help="add the members of each club to --summary"
@@ -225,6 +228,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         import matplotlib
 
         matplotlib.use("Agg")
+    if args.html:
+        try:
+            result.plot.interactive(theme=args.theme).write_html(args.html)
+        except ImportError as exc:
+            print(f"convergence-clubs: error: {exc}", file=sys.stderr)
+            return 1
     if args.plot:
         result.plot(theme=args.theme, units=args.units, ncols=4).savefig(args.plot, dpi=150)
 

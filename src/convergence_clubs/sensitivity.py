@@ -199,6 +199,12 @@ class SensitivityResult:
 
         return plot_co_membership(self, **kwargs)
 
+    def plot_interactive(self, **kwargs):
+        """Interactive co-membership heatmap (plotly); see :mod:`convergence_clubs.interactive`."""
+        from .interactive import co_membership_figure
+
+        return co_membership_figure(self, **kwargs)
+
     def plot_stability(self, **kwargs) -> Axes:
         """Per-unit confidence dots; see :func:`convergence_clubs.plot_stability`."""
         from .plotting import plot_stability

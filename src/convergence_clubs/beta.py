@@ -129,6 +129,12 @@ class BetaResult:
 
         return plot_beta(self, **kwargs)
 
+    def plot_interactive(self, **kwargs):
+        """Interactive scatter (plotly); see :func:`convergence_clubs.interactive.beta_figure`."""
+        from .interactive import beta_figure
+
+        return beta_figure(self, **kwargs)
+
     def __repr__(self) -> str:
         kind = "conditional" if self.controls or self.club_effects else "absolute"
         return (

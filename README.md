@@ -34,7 +34,8 @@ Results match the R package to within 1e-8 (see [Validation](#validation)).
 pip install "convergence-clubs[plot] @ git+https://github.com/bbanyuls/club-convergence"
 ```
 
-The core package needs only `numpy` and `pandas`. The `plot` extra adds `matplotlib`.
+The core package needs only `numpy` and `pandas`. The `plot` extra adds `matplotlib`, and the
+`interactive` extra adds `plotly`.
 
 ## Quick start
 
@@ -151,6 +152,27 @@ merged.plot.log_t("club1", ax=axes[1])
 ```
 
 ![Diagnostics: H(t) per club and the log t regression](docs/diagnostics.png)
+
+### Interactive charts
+
+With the `interactive` extra (`pip install "convergence-clubs[interactive] @ git+..."`, which
+adds plotly), every main chart has an interactive version:
+- hovering shows the unit's name;
+- clicking a club in the legend hides or shows all of its lines;
+- the club-averages and σ charts show every group at the year under the cursor.
+
+The colors match the matplotlib plots, and `write_html()` saves a standalone page you can
+share:
+
+```python
+merged.plot.interactive()                          # transition paths (kind="clubs" | "average" | "both")
+merged.plot.interactive(kind="average", theme="dark").write_html("clubs.html")
+runs.plot_interactive()                            # co-membership heatmap (sensitivity / bootstrap)
+cc.beta_convergence(gdp, clubs=merged).plot_interactive()
+cc.sigma_convergence(gdp, clubs=merged).plot_interactive(index=True)
+```
+
+From the command line, `--html clubs.html` writes the interactive transition paths.
 
 ### Customizing plots
 
