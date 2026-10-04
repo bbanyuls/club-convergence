@@ -115,25 +115,35 @@ def ols(y: np.ndarray, X: np.ndarray, cov_type: str = "HC1", lags: int | None = 
     n, k = X.shape
     if n <= k:
         raise ValueError(f"need more observations ({n}) than regressors ({k})")
-    xtx_inv = np.linalg.inv(X.T @ X)
-    params = xtx_inv @ X.T @ y
-    resid = y - X @ params
-    if cov_type == "nonrobust":
-        cov = xtx_inv * (resid @ resid) / (n - k)
-    elif cov_type in ("HC0", "HC1"):
-        meat = (X * resid[:, None] ** 2).T @ X
-        cov = xtx_inv @ meat @ xtx_inv
-        if cov_type == "HC1":
-            cov *= n / (n - k)
-    else:
-        lags = newey_west_lags(n) if lags is None else lags
-        scores = X * resid[:, None]
-        meat = scores.T @ scores
-        for lag in range(1, lags + 1):
-            weight = 1.0 - lag / (lags + 1.0)
-            gamma = scores[lag:].T @ scores[:-lag]
-            meat += weight * (gamma + gamma.T)
-        cov = xtx_inv @ meat @ xtx_inv
+    # numpy 2.0-2.2 with macOS Accelerate can emit spurious floating-point warnings
+    # from matmul; real numerical problems are caught by the finiteness check below.
+    with np.errstate(all="ignore"):
+        try:
+            xtx_inv = np.linalg.inv(X.T @ X)
+        except np.linalg.LinAlgError:
+            raise ValueError(
+                "the regression could not be estimated (collinear regressors?)"
+            ) from None
+        params = xtx_inv @ X.T @ y
+        resid = y - X @ params
+        if cov_type == "nonrobust":
+            cov = xtx_inv * (resid @ resid) / (n - k)
+        elif cov_type in ("HC0", "HC1"):
+            meat = (X * resid[:, None] ** 2).T @ X
+            cov = xtx_inv @ meat @ xtx_inv
+            if cov_type == "HC1":
+                cov *= n / (n - k)
+        else:
+            lags = newey_west_lags(n) if lags is None else lags
+            scores = X * resid[:, None]
+            meat = scores.T @ scores
+            for lag in range(1, lags + 1):
+                weight = 1.0 - lag / (lags + 1.0)
+                gamma = scores[lag:].T @ scores[:-lag]
+                meat += weight * (gamma + gamma.T)
+            cov = xtx_inv @ meat @ xtx_inv
+    if not (np.isfinite(params).all() and np.isfinite(cov).all()):
+        raise ValueError("the regression could not be estimated (collinear regressors?)")
     centred = y - y.mean()
     r_squared = 1.0 - (resid @ resid) / (centred @ centred) if centred.any() else math.nan
     return OLSResult(params, cov, resid, float(r_squared), n, k, cov_type)

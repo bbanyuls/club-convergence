@@ -154,3 +154,9 @@ def test_plot(gdp, clubs):
     assert len(ax.get_lines()) == 1 + 6  # zero line + one fitted line per club
     assert "half-life: 33 years" in ax.texts[0].get_text()
     plt.close("all")
+
+
+def test_collinear_regressors_raise_a_clear_error(gdp):
+    duplicate = pd.DataFrame({"copy": np.log(gdp[1970])}, index=gdp.index)
+    with pytest.raises(ValueError, match="collinear"):
+        cc.beta_convergence(gdp, controls=duplicate)
