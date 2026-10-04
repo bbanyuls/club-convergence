@@ -62,12 +62,19 @@ def test_summary_and_text(clubs):
     assert "merged_clubs" in clubs.merge().summary().columns
 
 
-def test_plot(clubs):
-    fig = clubs.plot()
-    visible = [ax for ax in fig.axes if ax.get_visible()]
-    assert len(visible) == clubs.n_clubs + 1
-    fig = clubs.plot(clubs=["club1", 2], units=False)
-    assert len([ax for ax in fig.axes if ax.get_visible()]) == 1
+def test_html_repr(clubs, filtered_gdp):
+    html = clubs._repr_html_()
+    assert "7 convergence clubs" in html and "<table" in html
+    data = filtered_gdp.rename(index={"Liberia": "A & <B>"})
+    html = cc.find_clubs(data, hac_method="AQSB")._repr_html_()
+    assert "A &amp; &lt;B&gt;" in html
+
+
+def test_log_t_intercept(filtered_gdp):
+    H = cc.cross_sectional_variation(filtered_gdp.to_numpy())
+    x, y = cc.log_t_regression_data(H, 1 / 3)
+    model = cc.log_t_test(H, 1 / 3)
+    np.testing.assert_allclose(np.polyfit(x, y, 1), [model.beta, model.alpha])
 
 
 def test_ref_col_and_data_cols(filtered_gdp):

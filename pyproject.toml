@@ -23,6 +23,9 @@ classifiers = [
 [project.optional-dependencies]
 plot = ["matplotlib>=3.6"]
 
+[project.scripts]
+convergence-clubs = "convergence_clubs.cli:main"
+
 [project.urls]
 Repository = "https://github.com/bbanyuls/club-convergence"
 "Original R package" = "https://github.com/rhobis/ConvergenceClubs"

@@ -14,7 +14,8 @@ It implements:
   incremental);
 - **club merging**, using either the Phillips and Sul (2009) rule or the von Lyncker and
   Thoennissen (2017) rule, plus merging of divergent units;
-- **HP filtering**, relative transition paths and plots.
+- **HP filtering**, relative transition paths, plots that you can customize and a
+  command-line tool.
 
 Results match the R package to within 1e-8 (see [Validation](#validation)).
 
@@ -38,7 +39,7 @@ data = cc.hp_filter(np.log(gdp), lamb=400)  # same as cc.load_filtered_gdp()
 # Does the whole panel converge?
 H = cc.cross_sectional_variation(data.to_numpy())
 cc.log_t_test(H, time_trim=1/3)
-# LogTResult(beta=-0.8748..., std_err=0.0054..., t_value=-159.55..., p_value=0.0)
+# LogTResult(beta=-0.8748..., std_err=0.0054..., t_value=-159.55..., p_value=0.0, alpha=0.398...)
 
 clubs = cc.find_clubs(data, time_trim=1/3, cstar=0, hac_method="FQSB")
 clubs.summary()
@@ -57,10 +58,10 @@ merged.summary()                 # club4 + club5 -> one club of 38 countries
 merged.memberships()             # pandas Series: unit -> club
 merged.units("club1")            # names of the units in a club
 print(merged)                    # detailed report, like R's print()
-merged.plot()                    # transition paths
+merged.plot()                    # transition paths (see Plots below)
 ```
 
-![Transition paths of the merged clubs](docs/transition_paths.png)
+In Jupyter, a result displays as a summary table.
 
 ### Input data
 
@@ -69,6 +70,87 @@ Pass a `pandas.DataFrame` with **units in rows** (the index holds the unit names
 to choose the column units are sorted by (the last period by default). Data must not
 contain missing values. As in Phillips and Sul, you will usually HP-filter the log of the
 variable first.
+
+## Plots
+
+Plotting needs the `plot` extra (matplotlib). Every plot is available from the result,
+and as a function that draws into an existing `ax`:
+
+| Call | Shows |
+|---|---|
+| `result.plot()` | A grid with one panel per club, then the club averages (returns a `Figure`) |
+| `result.plot.club("club4")` | Every unit's path in one club, with the club average |
+| `result.plot.average()` | The average transition path of each club |
+| `result.plot.variation()` | Cross-sectional variation H(t) within each club. H shrinks when a club converges. |
+| `result.plot.log_t("club1")` | The log t regression behind a club's test: points, fitted line, β and t |
+
+```python
+merged.plot(ncols=4)
+```
+
+![Transition paths of the merged clubs](docs/transition_paths.png)
+
+```python
+merged.plot(ncols=4, theme="dark", units="band")   # quantile band instead of one line per unit
+```
+
+![Dark theme with quantile bands](docs/transition_paths_dark.png)
+
+```python
+import matplotlib.pyplot as plt
+
+fig, axes = plt.subplots(1, 2, figsize=(11, 3.8), layout="constrained")
+merged.plot.average(ax=axes[0], emphasis=["club1", "club6"])   # gray out the other clubs
+merged.plot.club("club4", ax=axes[1], highlight=["Bolivia", "Honduras"], reference_line=True)
+```
+
+![Emphasis and highlighted units](docs/emphasis_and_highlight.png)
+
+```python
+fig, axes = plt.subplots(1, 2, figsize=(11, 3.8), layout="constrained")
+merged.plot.variation(ax=axes[0])
+merged.plot.log_t("club1", ax=axes[1])
+```
+
+![Diagnostics: H(t) per club and the log t regression](docs/diagnostics.png)
+
+### Customizing plots
+
+- **Colors.** `colors=["#000", ...]` (in club order) or `colors={"club2": "crimson"}`.
+  Each club keeps its color in every panel, even if you plot only some of the clubs.
+  The default palette has 8 colors that stay distinguishable for color-blind readers.
+  From the 9th club on, the colors repeat with dashed lines, so no hard-to-distinguish new colors are added.
+- **Themes.** `theme="light"` / `"dark"`, or your own `cc.Theme`, e.g.
+  `cc.LIGHT.with_colors([...])`, or `dataclasses.replace(cc.DARK, font_size=11)`.
+- **Grid** (`plot()`):
+  - `clubs=` picks which clubs to draw;
+  - `kind="clubs" | "average" | "both"`;
+  - `ncols=`, `panel_size=`, `sharey=True`, `title=`, `ylabel=` and `legend=False` control the layout.
+- **Club panels:**
+  - `units="lines" | "band" | "none"`, with `band=(0.1, 0.9)` setting the quantiles;
+  - `highlight=[unit names]`;
+  - `reference_line=True` draws h = 1;
+  - `unit_kws=` / `average_kws=` are passed to matplotlib.
+- **Average panel:**
+  - `emphasis=` keeps the chosen clubs in color and grays the rest;
+  - `direct_labels=True | False | "auto"`;
+  - `line_kws=` is passed to matplotlib.
+- Periods on the x-axis can be numbers (years), dates, pandas periods or strings.
+- Every plot is drawn from `result.transition_paths()`, so the same values are also available as a table.
+
+## Command line
+
+```bash
+convergence-clubs gdp.csv --log --hp-filter --merge PS \
+    --memberships clubs.csv --summary summary.csv --plot clubs.png --theme dark
+```
+
+The CSV file must have units in rows and periods in columns. Other options:
+- `--time-trim 1/3`, `--hac AQSB`, `--cstar`, `--cstar-method incremental`;
+- `--merge-divergent`;
+- `--details`, which prints the members of every club.
+
+Run `convergence-clubs --help` for the full list, or call it as `python -m convergence_clubs`.
 
 ## API correspondence with the R package
 
@@ -80,7 +162,8 @@ variable first.
 | `mergeClubs(clubs, mergeMethod, mergeDivergent, estar)` | `clubs.merge(method, merge_divergent=, estar=)` |
 | `mergeDivergent(clubs, estar)` | `clubs.merge_divergent(estar=)` |
 | `transition_paths(clubs)` | `clubs.transition_paths()` |
-| `summary()`, `print()`, `dim()`, `plot()` | `.summary()`, `print()`, `.n_clubs` / `.n_divergent`, `.plot()` |
+| `summary()`, `print()`, `dim()` | `.summary()`, `print()`, `.n_clubs` / `.n_divergent` |
+| `plot(clubs)`, `plot(clubs, clubs=NULL)` | `.plot()`, `.plot(kind="average")` |
 | `data(GDP)`, `data(filteredGDP)` | `load_gdp()`, `load_filtered_gdp()` |
 | `mFilter::hpfilter(x, 400, type="lambda")` | `hp_filter(x, lamb=400)` |
 
@@ -117,6 +200,7 @@ uv sync                              # create the environment
 uv run pytest                        # run the tests
 uv run ruff check . && uv run ruff format --check .
 Rscript scripts/generate_r_fixtures.R  # regenerate the R reference (needs R)
+uv run python scripts/make_figures.py  # regenerate the figures in docs/
 ```
 
 ## References

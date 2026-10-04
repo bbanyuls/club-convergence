@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import shutil
 import textwrap
 from collections.abc import Iterator
@@ -15,6 +16,7 @@ import pandas as pd
 from .logt import LogTResult, relative_transition
 
 if TYPE_CHECKING:
+    from matplotlib.axes import Axes
     from matplotlib.figure import Figure
 
 
@@ -153,11 +155,15 @@ class ConvergenceClubs:
             return pd.DataFrame(columns=self.data.columns)
         return pd.concat(frames)
 
-    def plot(self, **kwargs) -> Figure:
-        """Plot transition paths; see :func:`convergence_clubs.plot_transition_paths`."""
-        from .plotting import plot_transition_paths
+    @property
+    def plot(self) -> PlotAccessor:
+        """Plotting methods.
 
-        return plot_transition_paths(self, **kwargs)
+        ``result.plot()`` draws the grid of transition paths;
+        ``result.plot.club(...)``, ``.average()``, ``.variation()`` and
+        ``.log_t(...)`` draw single panels. See :mod:`convergence_clubs.plotting`.
+        """
+        return PlotAccessor(self)
 
     def _replace(self, **changes) -> ConvergenceClubs:
         return replace(self, **changes)
@@ -169,6 +175,15 @@ class ConvergenceClubs:
         return (
             f"<ConvergenceClubs: {self.n_clubs} {kind}clubs, "
             f"{self.n_divergent} divergent units, hac_method={self.hac_method!r}>"
+        )
+
+    def _repr_html_(self) -> str:
+        summary = self.summary().to_html(float_format=lambda v: f"{v:.3f}", border=0)
+        divergent = html.escape(", ".join(map(str, self.divergent))) or "none"
+        return (
+            f"<p><b>{self.n_clubs} convergence clubs</b>, {self.n_divergent} divergent units "
+            f"(hac_method={self.hac_method}, time_trim={self.time_trim:.3g})</p>"
+            f"{summary}<p>Divergent units: {divergent}</p>"
         )
 
     def __str__(self) -> str:
@@ -193,3 +208,40 @@ class ConvergenceClubs:
             out += textwrap.wrap(", ".join(map(str, self.divergent)), width)
             out.append("")
         return "\n".join(out)
+
+
+class PlotAccessor:
+    """Plotting methods of a :class:`ConvergenceClubs` result."""
+
+    def __init__(self, result: ConvergenceClubs) -> None:
+        self._result = result
+
+    def __call__(self, **kwargs) -> Figure:
+        """Grid of transition paths; see :func:`~convergence_clubs.plot_transition_paths`."""
+        from .plotting import plot_transition_paths
+
+        return plot_transition_paths(self._result, **kwargs)
+
+    def club(self, club: int | str, **kwargs) -> Axes:
+        """Paths of one club's units; see :func:`~convergence_clubs.plot_club`."""
+        from .plotting import plot_club
+
+        return plot_club(self._result, club, **kwargs)
+
+    def average(self, **kwargs) -> Axes:
+        """Average path per club; see :func:`~convergence_clubs.plot_average_paths`."""
+        from .plotting import plot_average_paths
+
+        return plot_average_paths(self._result, **kwargs)
+
+    def variation(self, **kwargs) -> Axes:
+        """H(t) per club; see :func:`~convergence_clubs.plot_cross_sectional_variation`."""
+        from .plotting import plot_cross_sectional_variation
+
+        return plot_cross_sectional_variation(self._result, **kwargs)
+
+    def log_t(self, club: int | str | None = None, **kwargs) -> Axes:
+        """log t regression diagnostic; see :func:`~convergence_clubs.plot_log_t`."""
+        from .plotting import plot_log_t
+
+        return plot_log_t(self._result, club, **kwargs)

@@ -22,13 +22,15 @@ class LogTResult:
     """Outcome of a log t regression.
 
     ``p_value`` is the left-tail normal probability of ``t_value``: small
-    values reject the null hypothesis of convergence.
+    values reject the null hypothesis of convergence. ``alpha`` is the
+    intercept of the regression.
     """
 
     beta: float
     std_err: float
     t_value: float
     p_value: float
+    alpha: float = math.nan
 
     def converges(self, threshold: float = CRITICAL_VALUE) -> bool:
         """Whether the null of convergence is *not* rejected at ``threshold``."""
@@ -49,6 +51,20 @@ def cross_sectional_variation(x: np.ndarray) -> np.ndarray:
 
 def _normal_cdf(x: float) -> float:
     return 0.5 * math.erfc(-x / math.sqrt(2.0))
+
+
+def log_t_regression_data(H: np.ndarray, time_trim: float = 1 / 3) -> tuple[np.ndarray, np.ndarray]:
+    """Regressor ``log t`` and response ``log(H_1 / H_t) - 2 log(log t)`` of the log t test.
+
+    Only periods ``t = [rT] + 1, ..., T`` (``r = time_trim``) are returned.
+    """
+    H = np.asarray(H, dtype=float)
+    n_t = H.size
+    periods = np.arange(round(n_t * time_trim) + 1, n_t + 1)
+    log_t = np.log(periods)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        y = np.log(H[0] / H[periods - 1]) - 2.0 * np.log(log_t)
+    return log_t, y
 
 
 def log_t_test(
@@ -75,13 +91,7 @@ def log_t_test(
     """
     if hac_method not in HAC_METHODS:
         raise ValueError(f"hac_method must be one of {HAC_METHODS}, got {hac_method!r}")
-    H = np.asarray(H, dtype=float)
-    n_t = H.size
-    periods = np.arange(round(n_t * time_trim) + 1, n_t + 1)
-    log_t = np.log(periods)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        y = np.log(H[0] / H[periods - 1]) - 2.0 * np.log(log_t)
-
+    log_t, y = log_t_regression_data(H, time_trim)
     design = np.column_stack([np.ones_like(log_t), log_t])
     coef, *_ = np.linalg.lstsq(design, y, rcond=None)
     resid = y - design @ coef
@@ -94,4 +104,10 @@ def log_t_test(
         std_err = math.sqrt(andrews_qs_vcov(design, resid)[1, 1])
 
     t_value = beta / std_err
-    return LogTResult(beta=beta, std_err=std_err, t_value=t_value, p_value=_normal_cdf(t_value))
+    return LogTResult(
+        beta=beta,
+        std_err=std_err,
+        t_value=t_value,
+        p_value=_normal_cdf(t_value),
+        alpha=float(coef[0]),
+    )
