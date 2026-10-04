@@ -39,3 +39,42 @@ def test_options_and_divergent_units(tmp_path, capsys):
 def test_errors_exit_with_status_1(tmp_path, capsys):
     assert main([str(tmp_path / "missing.csv")]) == 1
     assert "error" in capsys.readouterr().err
+
+
+def test_long_input_and_sensitivity(tmp_path, capsys):
+    long = cc.load_gdp().stack().rename("gdp").rename_axis(["country", "year"]).reset_index()
+    csv, heatmap, summary = tmp_path / "long.csv", tmp_path / "co.png", tmp_path / "s.csv"
+    long.to_csv(csv, index=False)
+
+    code = main([
+        str(csv), "--long", "country", "year", "gdp", "--log", "--hp-filter",
+        "--summary", str(summary), "--members",
+        "--sensitivity", "--sensitivity-plot", str(heatmap),
+    ])  # fmt: skip
+
+    assert code == 0
+    out = capsys.readouterr().out
+    assert out.startswith("7 convergence clubs, 0 divergent units")
+    assert "sensitivity (8 runs" in out and "least stable units" in out
+    assert pd.read_csv(summary)["members"].iloc[-1] == "Congo, Dem. Rep.; Liberia"
+    assert heatmap.stat().st_size > 0
+
+
+def test_sensitivity_errors_are_reported(tmp_path, capsys, monkeypatch):
+    import convergence_clubs.cli as cli
+
+    def fail(*args, **kwargs):
+        raise ValueError("boom")
+
+    monkeypatch.setattr(cli, "sensitivity", fail)
+    csv = tmp_path / "f.csv"
+    cc.load_filtered_gdp().to_csv(csv)
+    assert main([str(csv), "--sensitivity"]) == 1
+    assert "error in sensitivity analysis: boom" in capsys.readouterr().err
+
+
+def test_sort_fraction_option(tmp_path, capsys):
+    csv = tmp_path / "f.csv"
+    cc.load_filtered_gdp().to_csv(csv)
+    assert main([str(csv), "--sort-fraction", "1/34"]) == 0
+    assert capsys.readouterr().out.startswith("7 convergence clubs")

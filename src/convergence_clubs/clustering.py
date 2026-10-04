@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Hashable, Sequence
 from typing import Literal
 
@@ -107,6 +108,7 @@ def find_clubs(
     cstar_cap: float = 3.0,
     data_cols: Sequence[Hashable] | None = None,
     ref_col: Hashable | None = None,
+    sort_fraction: float = 0.0,
 ) -> ConvergenceClubs:
     """Find convergence clubs with the Phillips and Sul clustering algorithm.
 
@@ -130,10 +132,22 @@ def find_clubs(
     ref_col
         Column used to sort units before clustering; defaults to the last
         data column (the last period).
+    sort_fraction
+        Sort units by their average over the last ``sort_fraction`` share of
+        periods instead of a single column (like the ``fr()`` option of the
+        Stata command ``psecta``); ``0`` sorts by ``ref_col``. Averaging makes
+        the ordering less sensitive to the last observation.
     """
     if not isinstance(data, pd.DataFrame):
         raise TypeError("data must be a pandas DataFrame with units in rows and periods in columns")
+    if not data.index.is_unique:
+        dupes = data.index[data.index.duplicated()].unique().tolist()
+        raise ValueError(f"unit names (the index) must be unique; duplicated: {dupes[:5]}")
     data_cols = list(data.columns if data_cols is None else data_cols)
+    if sort_fraction and ref_col is not None:
+        raise ValueError("give either ref_col or sort_fraction, not both")
+    if not 0 <= sort_fraction <= 1:
+        raise ValueError("sort_fraction must be in [0, 1]")
     ref_col = data_cols[-1] if ref_col is None else ref_col
     if ref_col not in data.columns:
         raise KeyError(f"ref_col {ref_col!r} is not a column of data")
@@ -141,8 +155,13 @@ def find_clubs(
     values = data[data_cols]
     if not all(pd.api.types.is_numeric_dtype(dt) for dt in values.dtypes):
         raise TypeError("all data columns must be numeric")
-    if values.isna().to_numpy().any():
-        raise ValueError("data must not contain missing values")
+    missing = values.isna().any(axis=1)
+    if missing.any():
+        units = missing.index[missing].tolist()
+        raise ValueError(
+            f"data must not contain missing values; {len(units)} units have some, "
+            f"e.g. {units[:5]} (drop or interpolate them first)"
+        )
     _validate_time_trim(len(data_cols), time_trim)
     if hac_method not in HAC_METHODS:
         raise ValueError(f"hac_method must be one of {HAC_METHODS}, got {hac_method!r}")
@@ -153,7 +172,12 @@ def find_clubs(
 
     cstar = float(cstar)
     X = values.to_numpy(dtype=float)
-    order = np.argsort(-data[ref_col].to_numpy(dtype=float), kind="stable")
+    if sort_fraction:
+        n_last = max(1, math.ceil(sort_fraction * X.shape[1]))
+        key = X[:, -n_last:].mean(axis=1)
+    else:
+        key = data[ref_col].to_numpy(dtype=float)
+    order = np.argsort(-key, kind="stable")
 
     clubs: list[Club] = []
     divergent: tuple[int, ...] = ()
@@ -195,6 +219,7 @@ def find_clubs(
         time_trim=time_trim,
         hac_method=hac_method,
         params={
+            "sort_fraction": sort_fraction,
             "cstar": cstar,
             "cstar_method": cstar_method,
             "cstar_increment": cstar_increment,

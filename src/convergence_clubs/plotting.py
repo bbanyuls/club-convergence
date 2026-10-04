@@ -23,10 +23,17 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from .results import Club, ConvergenceClubs
+    from .sensitivity import SensitivityResult
 
 ClubKey = str | int
 Colors = Sequence[str] | Mapping[str, str] | None
 UnitsStyle = Literal["lines", "band", "none"]
+
+
+_BLUE_RAMP = (
+    "#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5",
+    "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b",
+)  # fmt: skip
 
 
 @dataclass(frozen=True)
@@ -48,6 +55,8 @@ class Theme:
     colors: tuple[str, ...]
     unit_alpha: float = 0.45
     font_size: float = 9.0
+    #: One-hue ramp from "nothing" to "a lot", used for heatmaps.
+    sequential: tuple[str, ...] = _BLUE_RAMP
 
     def with_colors(self, colors: Sequence[str]) -> Theme:
         """Copy of the theme with other club colours."""
@@ -74,6 +83,9 @@ DARK = Theme(
     baseline="#383835",
     colors=("#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"),
     unit_alpha=0.5,
+    # On a dark surface "nothing" must recede into the surface: start near it
+    # and run the ramp towards light.
+    sequential=("#22262d", *_BLUE_RAMP[::-1]),
 )
 THEMES: dict[str, Theme] = {"light": LIGHT, "dark": DARK}
 
@@ -477,6 +489,67 @@ def plot_log_t(
         "log(H₁/Hₜ) − 2 log(log t)",
         xlabel="log t",
     )
+    return ax
+
+
+def plot_co_membership(
+    sensitivity: SensitivityResult,
+    *,
+    ax: Axes | None = None,
+    unit_labels: bool | Literal["auto"] = "auto",
+    colorbar: bool = True,
+    theme: str | Theme = "light",
+    title: str | None = "auto",
+) -> Axes:
+    """Heatmap of how often each pair of units ends up in the same club.
+
+    Units are ordered by their baseline club and the baseline clubs are
+    outlined, so stable clubs show as solid dark blocks and units that
+    switch clubs as lighter stripes. ``unit_labels="auto"`` prints unit
+    names for up to 60 units and club names otherwise.
+    """
+    from matplotlib.colors import LinearSegmentedColormap
+
+    th = _theme(theme)
+    ax = _new_axes(ax, th, figsize=(6.4, 5.6))
+    base = sensitivity.baseline
+    order = [i for club in base.clubs for i in club.ids] + list(base.divergent_ids)
+    blocks = [(club.name, len(club)) for club in base.clubs]
+    if base.n_divergent:
+        blocks.append(("divergent", base.n_divergent))
+    share = sensitivity.co_membership().to_numpy()[np.ix_(order, order)]
+
+    cmap = LinearSegmentedColormap.from_list("share", th.sequential)
+    image = ax.imshow(share, cmap=cmap, vmin=0, vmax=1, interpolation="nearest")
+    edges = np.cumsum([size for _, size in blocks])[:-1] - 0.5
+    for edge in edges:
+        ax.axhline(edge, color=th.surface, linewidth=1.5)
+        ax.axvline(edge, color=th.surface, linewidth=1.5)
+
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.tick_params(length=0, labelsize=th.font_size - 1, labelcolor=th.ink_secondary)
+    names = base.data.index[order]
+    if unit_labels is True or (unit_labels == "auto" and len(order) <= 60):
+        ax.set_xticks(range(len(order)), [str(n) for n in names], rotation=90)
+        ax.set_yticks(range(len(order)), [str(n) for n in names])
+    else:
+        starts = np.concatenate([[0], np.cumsum([size for _, size in blocks])[:-1]])
+        centres = [start + size / 2 - 0.5 for start, (_, size) in zip(starts, blocks, strict=True)]
+        ax.set_yticks(centres, [name for name, _ in blocks])
+        ax.set_xticks([])
+    ax.set_facecolor(th.surface)
+    ax.figure.set_facecolor(th.surface)
+
+    if colorbar:
+        bar = ax.figure.colorbar(image, ax=ax, shrink=0.85)
+        bar.outline.set_visible(False)
+        bar.ax.tick_params(length=0, labelsize=th.font_size - 1, labelcolor=th.ink_secondary)
+        bar.set_label(
+            "share of runs in the same club", color=th.ink_secondary, fontsize=th.font_size
+        )
+    auto = f"Co-membership across {len(sensitivity)} runs"
+    _decorate(ax, th, auto if title == "auto" else title, None)
     return ax
 
 

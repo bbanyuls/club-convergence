@@ -80,9 +80,11 @@ def andrews_qs_vcov(design: np.ndarray, resid: np.ndarray, tol: float = 1e-7) ->
     rho, sigma = np.array([_ar1_fit(scores[:, j]) for j in range(k)]).T
     col_weights = np.ones(k)
     col_weights[0] = 0.0
-    denom = np.sum(col_weights * (sigma / (1 - rho)) ** 4)
-    alpha2 = np.sum(col_weights * 4 * rho**2 * sigma**4 / (1 - rho) ** 8) / denom
-    bandwidth = 1.3221 * (n * alpha2) ** 0.2
+    # A perfect AR(1) fit (sigma = 0, tiny samples) gives 0/0: handled by the fallback below.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        denom = np.sum(col_weights * (sigma / (1 - rho)) ** 4)
+        alpha2 = np.sum(col_weights * 4 * rho**2 * sigma**4 / (1 - rho) ** 8) / denom
+        bandwidth = 1.3221 * (n * alpha2) ** 0.2
 
     if bandwidth > 0 and np.isfinite(bandwidth):
         weights = _qs_weights(np.arange(n) / bandwidth)

@@ -14,8 +14,11 @@ It implements:
   incremental);
 - **club merging**, using either the Phillips and Sul (2009) rule or the von Lyncker and
   Thoennissen (2017) rule, plus merging of divergent units;
-- **HP filtering**, relative transition paths, plots that you can customize and a
-  command-line tool.
+- **sensitivity analysis**: how stable the clubs are across `time_trim`, HAC method, `c*`,
+  merging and unit ordering, measured with co-membership, adjusted Rand index and a stability
+  score for each unit;
+- **HP filtering**, long-to-wide reshaping, relative transition paths, plots that you can
+  customize and a command-line tool.
 
 Results match the R package to within 1e-8 (see [Validation](#validation)).
 
@@ -65,11 +68,19 @@ In Jupyter, a result displays as a summary table.
 
 ### Input data
 
-Pass a `pandas.DataFrame` with **units in rows** (the index holds the unit names) and
-**time periods in columns**. Use `data_cols=` to restrict the columns used and `ref_col=`
-to choose the column units are sorted by (the last period by default). Data must not
-contain missing values. As in Phillips and Sul, you will usually HP-filter the log of the
-variable first.
+Pass a `pandas.DataFrame` with **units in rows** (the index holds unique unit names) and
+**time periods in columns**. Long data (one row per unit and year) can be converted with
+`cc.wide_panel(df, unit="region", time="year", value="gdp_pc")`. Data must not contain
+missing values; the error message lists the units that do. As in Phillips and Sul, you
+will usually HP-filter the log of the variable first.
+
+Units are sorted by the last period before clustering. To sort by a different column, use
+`ref_col=`. To sort by the average of the last share of periods, use `sort_fraction=0.1`,
+like Stata's `psecta, fr()`; this makes the ordering less sensitive to a single year.
+`data_cols=` restricts which columns are used.
+
+For a paper table that lists the members of each club, use `clubs.summary(members=True)`.
+You can then export it with `.to_latex()` or `.to_csv()`.
 
 ## Plots
 
@@ -138,6 +149,35 @@ merged.plot.log_t("club1", ax=axes[1])
 - Periods on the x-axis can be numbers (years), dates, pandas periods or strings.
 - Every plot is drawn from `result.transition_paths()`, so the same values are also available as a table.
 
+## Sensitivity analysis
+
+Club memberships depend on the trimming fraction, the HAC estimator, `c*`, merging and how
+units are ordered. On the GDP data, for example, FQSB gives 7 clubs and AQSB gives 5 clubs
+plus 3 divergent units. `sensitivity()` reruns the procedure over a grid of settings. The
+first value of each setting forms the baseline run.
+
+```python
+runs = cc.sensitivity(
+    data,
+    time_trim=[1/3, 0.25, 0.3, 0.4],   # defaults
+    hac_method=["FQSB", "AQSB"],       # defaults
+    cstar=[0, -1],
+    merge=[None, "PS"],
+)
+runs.table()          # one row per run: settings, clubs, sizes, agreement with the baseline (ARI)
+runs.stability()      # per unit: share of runs spent with its baseline club mates
+runs.co_membership()  # units x units: share of runs in the same club
+runs.plot()           # heatmap below
+
+cc.compare_clubs(a, b)          # crosstab of two results' memberships
+cc.adjusted_rand_index(a, b)    # 1 = identical memberships, 0 = chance agreement
+```
+
+In the heatmap, a club that stays together in every run shows as a solid dark block. Lighter
+stripes are units that change clubs between runs.
+
+![Co-membership across 32 runs](docs/co_membership.png)
+
 ## Command line
 
 ```bash
@@ -145,10 +185,16 @@ convergence-clubs gdp.csv --log --hp-filter --merge PS \
     --memberships clubs.csv --summary summary.csv --plot clubs.png --theme dark
 ```
 
-The CSV file must have units in rows and periods in columns. Other options:
+The CSV file must have units in rows and periods in columns. For a long-format file, use
+`--long COUNTRY YEAR GDP`, giving the unit, period and value columns. Other options:
 - `--time-trim 1/3`, `--hac AQSB`, `--cstar`, `--cstar-method incremental`;
-- `--merge-divergent`;
-- `--details`, which prints the members of every club.
+- `--sort-fraction 0.1`, `--merge-divergent`;
+- `--details`, which prints the members of every club;
+- `--summary out.csv --members`, which writes the summary table with the members of each club.
+
+`--sensitivity` reruns the clustering with `time_trim` set to 1/3, 0.25, 0.3 and 0.4, each with
+FQSB and AQSB. It prints the agreement table and the least stable units, and
+`--sensitivity-plot FILE` saves the heatmap.
 
 Run `convergence-clubs --help` for the full list, or call it as `python -m convergence_clubs`.
 

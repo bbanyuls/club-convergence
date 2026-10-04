@@ -38,6 +38,9 @@ def main() -> None:
     merged.plot.log_t("club1", ax=axes[1])
     save(fig, "diagnostics.png")
 
+    runs = cc.sensitivity(cc.load_filtered_gdp(), cstar=[0, -1], merge=[None, "PS"])
+    save(runs.plot().figure, "co_membership.png")
+
 
 if __name__ == "__main__":
     main()

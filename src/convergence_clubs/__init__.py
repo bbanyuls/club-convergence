@@ -15,17 +15,25 @@ from .logt import (
     relative_transition,
 )
 from .merging import merge_clubs, merge_divergent
+from .panel import wide_panel
 from .plotting import (
     DARK,
     LIGHT,
     Theme,
     plot_average_paths,
     plot_club,
+    plot_co_membership,
     plot_cross_sectional_variation,
     plot_log_t,
     plot_transition_paths,
 )
 from .results import Club, ConvergenceClubs
+from .sensitivity import (
+    SensitivityResult,
+    adjusted_rand_index,
+    compare_clubs,
+    sensitivity,
+)
 
 __version__ = "0.1.0"
 
@@ -36,7 +44,10 @@ __all__ = [
     "Club",
     "ConvergenceClubs",
     "LogTResult",
+    "SensitivityResult",
     "Theme",
+    "adjusted_rand_index",
+    "compare_clubs",
     "cross_sectional_variation",
     "find_clubs",
     "hp_filter",
@@ -48,8 +59,11 @@ __all__ = [
     "merge_divergent",
     "plot_average_paths",
     "plot_club",
+    "plot_co_membership",
     "plot_cross_sectional_variation",
     "plot_log_t",
     "plot_transition_paths",
     "relative_transition",
+    "sensitivity",
+    "wide_panel",
 ]

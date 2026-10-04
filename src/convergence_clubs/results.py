@@ -104,8 +104,12 @@ class ConvergenceClubs:
             labels[list(club.ids)] = club.name
         return pd.Series(labels, index=self.data.index, name="club")
 
-    def summary(self) -> pd.DataFrame:
-        """One row per club: size, log t regression results and ``c*`` or merged clubs."""
+    def summary(self, members: bool = False) -> pd.DataFrame:
+        """One row per club: size, log t regression results and ``c*`` or merged clubs.
+
+        With ``members=True`` a column lists the units of each club, which
+        makes a ready-to-publish table (e.g. ``summary(members=True).to_latex()``).
+        """
         rows = []
         for club in self.clubs:
             row = {
@@ -119,6 +123,9 @@ class ConvergenceClubs:
                 row["merged_clubs"] = ", ".join(club.merged_from or ())
             else:
                 row["cstar"] = club.cstar
+            if members:
+                # "; " because unit names may contain commas ("Korea, Republic of").
+                row["members"] = "; ".join(map(str, self.units(club.name)))
             rows.append(row)
         return pd.DataFrame(rows, index=pd.Index([c.name for c in self.clubs], name="club"))
 
