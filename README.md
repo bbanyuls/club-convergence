@@ -44,6 +44,12 @@ The core package needs only `numpy` and `pandas`. The `plot` extra adds `matplot
 
 ## Quick start
 
+New to the method? [`docs/tutorial.ipynb`](docs/tutorial.ipynb) walks through a complete analysis and explains how
+to read each result: data preparation, the log t test, clubs and merging, robustness, β, σ, distribution
+dynamics, a Stata replication and the report. The test suite runs it, so it always works with the
+current version.
+
+
 ```python
 import numpy as np
 import convergence_clubs as cc
@@ -552,6 +558,7 @@ uv run pytest                        # run the tests
 uv run ruff check . && uv run ruff format --check .
 Rscript scripts/generate_r_fixtures.R  # regenerate the R reference (needs R)
 uv run python scripts/make_figures.py  # regenerate the figures in docs/
+# docs/tutorial.ipynb is committed without outputs; tests/test_tutorial.py executes it
 ```
 
 ## References
