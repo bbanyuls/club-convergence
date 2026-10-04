@@ -26,7 +26,8 @@ It implements:
   - distribution dynamics (Markov transition matrices of relative income, the ergodic
     distribution, mobility indices and "twin peaks" densities);
 - **data preparation**: HP filtering, long-to-wide reshaping and handling of missing values;
-- **plots** you can customize, and a **command-line tool**.
+- **plots** you can customize, **interactive charts**, **maps** of club membership, and a
+  **command-line tool**.
 
 Results match the R package to within 1e-8 (see [Validation](#validation)).
 
@@ -36,8 +37,8 @@ Results match the R package to within 1e-8 (see [Validation](#validation)).
 pip install "convergence-clubs[plot] @ git+https://github.com/bbanyuls/club-convergence"
 ```
 
-The core package needs only `numpy` and `pandas`. The `plot` extra adds `matplotlib`, and the
-`interactive` extra adds `plotly`.
+The core package needs only `numpy` and `pandas`. The `plot` extra adds `matplotlib`, the
+`interactive` extra adds `plotly`, and the `maps` extra adds `geopandas`.
 
 ## Quick start
 
@@ -175,6 +176,31 @@ cc.sigma_convergence(gdp, clubs=merged).plot_interactive(index=True)
 ```
 
 From the command line, `--html clubs.html` writes the interactive transition paths.
+
+### Maps
+
+With the `maps` extra (geopandas), `result.plot.map(geodata)` colors each region by its
+club. Divergent units are shown in gray, and regions without data in a light neutral fill.
+Pass a bootstrap result as `confidence=` to draw uncertain members lighter.
+
+```python
+import geopandas as gpd
+
+world = gpd.read_file(".../ne_50m_admin_0_countries.zip")      # Natural Earth boundaries
+merged.plot.map(
+    world, key="ISO_A3_EH", names=cc.country_codes(),        # match countries by ISO3 code
+    crs="EPSG:8857",                                          # Equal Earth projection
+    confidence=cc.bootstrap(data, 200, merge="PS", seed=0),   # lighter = less certain
+)
+```
+
+By default units are matched to regions by name. `names=` maps unit names to region keys when
+they differ; `cc.country_codes()` gives verified ISO3 codes for the bundled GDP data.
+`cc.match_regions()` lists which units were matched, and units with no region are reported
+in a warning rather than silently dropped. From the command line, use
+`--map clubs.png --geodata regions.gpkg --geo-key NAME`.
+
+![World map of the merged clubs; lighter countries have bootstrap stability below 0.8](docs/map.png)
 
 ### Customizing plots
 

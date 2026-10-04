@@ -271,6 +271,12 @@ class PlotAccessor:
 
         return transition_paths_figure(self._result, **kwargs)
 
+    def map(self, geodata, **kwargs) -> Axes:
+        """Regions coloured by club (geopandas); see :func:`convergence_clubs.maps.plot_map`."""
+        from .maps import plot_map
+
+        return plot_map(self._result, geodata, **kwargs)
+
     def log_t(self, club: int | str | None = None, **kwargs) -> Axes:
         """log t regression diagnostic; see :func:`~convergence_clubs.plot_log_t`."""
         from .plotting import plot_log_t

@@ -6,7 +6,7 @@ A Python port of the R package ConvergenceClubs (Sichera and Pizzuto, 2019).
 from .beta import BetaResult, beta_convergence
 from .bootstrap import bootstrap
 from .clustering import ClubConvergenceWarning, find_clubs
-from .datasets import load_filtered_gdp, load_gdp
+from .datasets import country_codes, load_filtered_gdp, load_gdp
 from .dynamics import DynamicsResult, distribution_dynamics
 from .filters import hp_filter
 from .logt import (
@@ -17,6 +17,7 @@ from .logt import (
     log_t_test,
     relative_transition,
 )
+from .maps import match_regions, plot_map
 from .merging import merge_clubs, merge_divergent
 from .panel import balance, describe_missing, fill_gaps, wide_panel
 from .plotting import (
@@ -66,6 +67,7 @@ __all__ = [
     "beta_convergence",
     "bootstrap",
     "compare_clubs",
+    "country_codes",
     "cross_sectional_variation",
     "describe_missing",
     "distribution_dynamics",
@@ -75,6 +77,7 @@ __all__ = [
     "load_filtered_gdp",
     "load_gdp",
     "log_t_regression_data",
+    "match_regions",
     "log_t_test",
     "merge_clubs",
     "merge_divergent",
@@ -87,6 +90,7 @@ __all__ = [
     "plot_densities",
     "plot_dynamics",
     "plot_log_t",
+    "plot_map",
     "plot_sigma",
     "plot_stability",
     "plot_transition_paths",

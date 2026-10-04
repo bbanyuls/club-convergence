@@ -131,6 +131,22 @@ def test_dynamics_option(tmp_path, capsys):
     assert "ergodic" in out and "clubs by class" in out and figure.stat().st_size > 0
 
 
+def test_map_option(tmp_path, capsys):
+    gpd = pytest.importorskip("geopandas")
+    from shapely.geometry import box
+
+    names = list(cc.load_filtered_gdp().index[:-1])  # leave one country out
+    boxes = [box(i % 13, i // 13, i % 13 + 1, i // 13 + 1) for i in range(len(names))]
+    geo = tmp_path / "regions.gpkg"
+    gpd.GeoDataFrame({"name": names}, geometry=boxes, crs="EPSG:4326").to_file(geo)
+    csv, figure = tmp_path / "f.csv", tmp_path / "map.png"
+    cc.load_filtered_gdp().to_csv(csv)
+    args = [str(csv), "--map", str(figure), "--geodata", str(geo), "--geo-key", "name"]
+    assert main(args) == 0
+    assert "1 units have no region" in capsys.readouterr().err and figure.stat().st_size > 0
+    assert main([str(csv), "--map", str(figure)]) == 1
+
+
 def test_html_option(tmp_path, capsys):
     csv, page = tmp_path / "f.csv", tmp_path / "clubs.html"
     cc.load_filtered_gdp().to_csv(csv)
