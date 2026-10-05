@@ -32,8 +32,9 @@ def _club_labels(clubs: ConvergenceClubs | pd.Series, units: pd.Index) -> pd.Ser
 def _period_length(data: pd.DataFrame, start: Hashable, end: Hashable) -> float:
     """Years between ``start`` and ``end`` when periods are numbers, else number of periods."""
     if pd.api.types.is_numeric_dtype(data.columns):
-        return float(end) - float(start)
-    return float(data.columns.get_loc(end) - data.columns.get_loc(start))
+        return float(end) - float(start)  # type: ignore[arg-type]
+    positions = data.columns.get_indexer(pd.Index([start, end]))
+    return float(positions[1] - positions[0])
 
 
 @dataclass(frozen=True, eq=False)
@@ -62,19 +63,19 @@ class BetaResult:
 
     @property
     def beta(self) -> float:
-        return float(self.coefficients.loc[INITIAL, "coef"])
+        return float(self.coefficients.at[INITIAL, "coef"])  # type: ignore[arg-type]
 
     @property
     def std_err(self) -> float:
-        return float(self.coefficients.loc[INITIAL, "std_err"])
+        return float(self.coefficients.at[INITIAL, "std_err"])  # type: ignore[arg-type]
 
     @property
     def t_value(self) -> float:
-        return float(self.coefficients.loc[INITIAL, "t_value"])
+        return float(self.coefficients.at[INITIAL, "t_value"])  # type: ignore[arg-type]
 
     @property
     def p_value(self) -> float:
-        return float(self.coefficients.loc[INITIAL, "p_value"])
+        return float(self.coefficients.at[INITIAL, "p_value"])  # type: ignore[arg-type]
 
     @property
     def speed(self) -> float:
@@ -103,9 +104,9 @@ class BetaResult:
         """
         if self.clubs is None:
             raise ValueError("pass clubs= to beta_convergence() to estimate β by club")
-        rows = {}
+        rows: dict[Any, dict[str, Any]] = {}
         for club, group in self.units.groupby("club", sort=False):
-            row = {"n_units": len(group)}
+            row: dict[str, Any] = {"n_units": len(group)}
             if len(group) >= 3 and group["log_initial"].nunique() > 1:
                 X = np.column_stack([np.ones(len(group)), group["log_initial"]])
                 fit = ols(group["growth"].to_numpy(), X, self.cov_type)
@@ -191,6 +192,8 @@ def beta_convergence(
     """
     if cov_type not in COV_TYPES or cov_type == "HAC":
         raise ValueError("cov_type must be 'nonrobust', 'HC0' or 'HC1'")
+    if not data.columns.is_unique:
+        raise ValueError("period labels (the columns) must be unique")
     start = data.columns[0] if start is None else start
     end = data.columns[-1] if end is None else end
     for col in (start, end):
@@ -204,7 +207,7 @@ def beta_convergence(
     if log:
         if (first <= 0).any() or (last <= 0).any():
             raise ValueError("log=True needs positive values; pass logs with log=False")
-        first, last = np.log(first), np.log(last)
+        first, last = first.transform(np.log), last.transform(np.log)
     units = pd.DataFrame({"log_initial": first, "growth": (last - first) / periods})
     missing = units.index[units.isna().any(axis=1)]
     if len(missing):
@@ -266,7 +269,7 @@ def beta_convergence(
 def _fitted_line(result: BetaResult, x: np.ndarray, club: str | None = None) -> np.ndarray:
     """Fitted growth at initial levels ``x``, with controls at their sample means."""
     coef = result.coefficients["coef"]
-    y = coef["const"] + coef[INITIAL] * np.asarray(x, dtype=float)
+    y: Any = coef["const"] + coef[INITIAL] * np.asarray(x, dtype=float)
     for name, mean in zip(result.controls, result.control_means, strict=True):
         y = y + coef[name] * mean
     if club is not None and f"club[{club}]" in coef.index:

@@ -89,7 +89,7 @@ def andrews_qs_vcov(design: np.ndarray, resid: np.ndarray, tol: float = 1e-7) ->
     if bandwidth > 0 and np.isfinite(bandwidth):
         weights = _qs_weights(np.arange(n) / bandwidth)
         keep = np.nonzero(np.abs(weights) > tol)[0]
-        weights = weights[: keep.max() + 1] if keep.size else np.ones(1)
+        weights = weights[: int(keep[-1]) + 1] if keep.size else np.ones(1)
     else:
         # sandwich errors out here; falling back to White's estimator is more useful.
         weights = np.ones(1)

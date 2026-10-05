@@ -88,9 +88,9 @@ def describe_missing(data: pd.DataFrame) -> pd.DataFrame:
             "longest_gap": max(interior, default=0),
         }
     columns = ["n_missing", "leading", "trailing", "interior", "longest_gap"]
-    return pd.DataFrame.from_dict(rows, orient="index", columns=columns).rename_axis(
-        data.index.name
-    )
+    table = pd.DataFrame.from_dict(rows, orient="index", columns=columns)
+    table.index.name = data.index.name
+    return table
 
 
 def fill_gaps(data: pd.DataFrame, *, max_gap: int = 2, log: bool = False) -> pd.DataFrame:

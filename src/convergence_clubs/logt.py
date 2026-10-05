@@ -56,7 +56,9 @@ def _normal_cdf(x: float) -> float:
 Rounding = Literal["half_even", "half_up"]
 
 
-def trimmed_periods(n_periods: int, time_trim: float, rounding: Rounding = "half_even") -> int:
+def trimmed_periods(
+    n_periods: int, time_trim: float, rounding: Rounding | str = "half_even"
+) -> int:
     """Number of initial periods discarded, ``[rT]``.
 
     R (and Python) round halves to even; Stata's ``logtreg`` rounds them up,
@@ -71,7 +73,7 @@ def trimmed_periods(n_periods: int, time_trim: float, rounding: Rounding = "half
 
 
 def log_t_regression_data(
-    H: np.ndarray, time_trim: float = 1 / 3, rounding: Rounding = "half_even"
+    H: np.ndarray, time_trim: float = 1 / 3, rounding: Rounding | str = "half_even"
 ) -> tuple[np.ndarray, np.ndarray]:
     """Regressor ``log t`` and response ``log(H_1 / H_t) - 2 log(log t)`` of the log t test.
 
@@ -89,8 +91,8 @@ def log_t_regression_data(
 def log_t_test(
     H: np.ndarray,
     time_trim: float = 1 / 3,
-    hac_method: HACMethod = "FQSB",
-    rounding: Rounding = "half_even",
+    hac_method: HACMethod | str = "FQSB",
+    rounding: Rounding | str = "half_even",
 ) -> LogTResult:
     """Estimate the log t regression of Phillips and Sul (2007, 2009).
 

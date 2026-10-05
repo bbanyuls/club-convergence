@@ -253,10 +253,10 @@ def report(
     cstar = find_kwargs.pop("cstar", 0.0)
     sort_fraction = find_kwargs.pop("sort_fraction", 0.0)
 
-    logs = np.log(data) if log else data.astype(float)
-    levels = data if log else np.exp(data)
+    logs = data.astype(float).transform(np.log) if log else data.astype(float)
+    levels = data if log else data.astype(float).transform(np.exp)
     clustered = hp_filter(logs, lamb=filter_lambda) if filter_lambda is not None else logs
-    image = {"dark": dark_mode, "dpi": dpi}
+    image: dict[str, Any] = {"dark": dark_mode, "dpi": dpi}
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always", ClubConvergenceWarning)
@@ -362,7 +362,11 @@ def report(
         ]
     members = final.summary(members=True)[["n_units", "members"]]
     if final.n_divergent:
-        members.loc["divergent"] = [final.n_divergent, "; ".join(map(str, final.divergent))]
+        divergent_row = pd.DataFrame(
+            {"n_units": [final.n_divergent], "members": ["; ".join(map(str, final.divergent))]},
+            index=pd.Index(["divergent"], name=members.index.name),
+        )
+        members = pd.concat([members, divergent_row])
     club_blocks += [
         Table(members, "Members of each club"),
         _image(

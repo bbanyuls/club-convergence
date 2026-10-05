@@ -160,3 +160,9 @@ def test_collinear_regressors_raise_a_clear_error(gdp):
     duplicate = pd.DataFrame({"copy": np.log(gdp[1970])}, index=gdp.index)
     with pytest.raises(ValueError, match="collinear"):
         cc.beta_convergence(gdp, controls=duplicate)
+
+
+def test_duplicate_periods_are_rejected(gdp):
+    duplicated = pd.concat([gdp, gdp[[2003]]], axis=1)
+    with pytest.raises(ValueError, match="unique"):
+        cc.beta_convergence(duplicated)
