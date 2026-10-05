@@ -105,6 +105,13 @@ def build_parser() -> argparse.ArgumentParser:
     out.add_argument(
         "--html", type=Path, metavar="FILE", help="save interactive transition paths (plotly)"
     )
+    out.add_argument("--map", type=Path, metavar="FILE", help="save a map of the clubs")
+    out.add_argument(
+        "--geodata", type=Path, metavar="PATH", help="region boundaries for --map (any GIS file)"
+    )
+    out.add_argument(
+        "--geo-key", metavar="COLUMN", help="column of --geodata holding the unit names"
+    )
     out.add_argument("--details", action="store_true", help="print the members of every club")
     out.add_argument(
         "--members", action="store_true", help="add the members of each club to --summary"
@@ -244,6 +251,24 @@ def main(argv: Sequence[str] | None = None) -> int:
             result.plot.interactive(theme=args.theme).write_html(args.html)
         except ImportError as exc:
             print(f"convergence-clubs: error: {exc}", file=sys.stderr)
+            return 1
+    if args.map:
+        if args.geodata is None:
+            print("convergence-clubs: error: --map needs --geodata", file=sys.stderr)
+            return 1
+        try:
+            import geopandas as gpd
+
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always", UserWarning)
+                ax = result.plot.map(
+                    gpd.read_file(args.geodata), key=args.geo_key, theme=args.theme
+                )
+            for w in caught:
+                print(f"convergence-clubs: warning: {w.message}", file=sys.stderr)
+            ax.figure.savefig(args.map, dpi=150)
+        except (ImportError, OSError, KeyError, ValueError) as exc:
+            print(f"convergence-clubs: error in map: {exc}", file=sys.stderr)
             return 1
     if args.plot:
         result.plot(theme=args.theme, units=args.units, ncols=4).savefig(args.plot, dpi=150)

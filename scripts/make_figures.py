@@ -14,6 +14,7 @@ import convergence_clubs as cc  # noqa: E402
 warnings.simplefilter("ignore", cc.ClubConvergenceWarning)
 
 DOCS = Path(__file__).resolve().parent.parent / "docs"
+NATURAL_EARTH = "https://naciscdn.org/naturalearth/50m/cultural/ne_50m_admin_0_countries.zip"
 DPI = 120
 
 
@@ -65,6 +66,20 @@ def main() -> None:
 
     boot = cc.bootstrap(cc.load_filtered_gdp(), 200, seed=0)
     save(boot.plot_stability().figure, "stability.png")
+
+    import geopandas as gpd
+
+    world = gpd.read_file(NATURAL_EARTH)
+    world = world[world["ADMIN"] != "Antarctica"]
+    merged_boot = cc.bootstrap(cc.load_filtered_gdp(), 200, merge="PS", seed=0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)  # Netherlands Antilles has no polygon
+        ax = merged.plot.map(
+            world, key="ISO_A3_EH", names=cc.country_codes(), crs="EPSG:8857",
+            confidence=merged_boot,
+        )  # fmt: skip
+    ax.figure.set_size_inches(11, 5.6)
+    save(ax.figure, "map.png")
 
 
 if __name__ == "__main__":
