@@ -28,6 +28,7 @@ from .plotting import (
     plot_co_membership,
     plot_cross_sectional_variation,
     plot_log_t,
+    plot_sigma,
     plot_stability,
     plot_transition_paths,
 )
@@ -38,6 +39,7 @@ from .sensitivity import (
     compare_clubs,
     sensitivity,
 )
+from .sigma import SigmaResult, sigma_convergence
 
 __version__ = "0.1.0"
 
@@ -51,6 +53,7 @@ __all__ = [
     "ConvergenceClubs",
     "LogTResult",
     "SensitivityResult",
+    "SigmaResult",
     "Theme",
     "adjusted_rand_index",
     "balance",
@@ -74,9 +77,11 @@ __all__ = [
     "plot_co_membership",
     "plot_cross_sectional_variation",
     "plot_log_t",
+    "plot_sigma",
     "plot_stability",
     "plot_transition_paths",
     "relative_transition",
     "sensitivity",
+    "sigma_convergence",
     "wide_panel",
 ]

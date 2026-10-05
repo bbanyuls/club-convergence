@@ -108,3 +108,14 @@ def test_beta_option(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "β-convergence 1970-2003" in out and "conditional on clubs" in out
     assert "within clubs" in out and figure.stat().st_size > 0
+
+
+def test_sigma_option(tmp_path, capsys):
+    csv, figure = tmp_path / "gdp.csv", tmp_path / "sigma.png"
+    cc.load_gdp().to_csv(csv)
+    assert (
+        main([str(csv), "--log", "--hp-filter", "--merge", "PS", "--sigma-plot", str(figure)]) == 0
+    )
+    out = capsys.readouterr().out
+    assert "σ-convergence (sd of log" in out and "all units" in out and "club5" in out
+    assert figure.stat().st_size > 0

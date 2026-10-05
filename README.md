@@ -19,8 +19,10 @@ It implements:
   - **bootstrap confidence** in each unit's club, by resampling units, business cycles or the
     end of the sample;
   - warnings when a club fails its own convergence test;
-- **classical convergence**: β-convergence (absolute, conditional on controls or on clubs, and
-  within each club), with the implied speed and half-life;
+- **classical convergence**:
+  - β-convergence (absolute, conditional on controls or on clubs, and within each club), with
+    the implied speed and half-life;
+  - σ-convergence (the trend of dispersion over time, for the whole panel and within each club);
 - **data preparation**: HP filtering, long-to-wide reshaping and handling of missing values;
 - **plots** you can customize, and a **command-line tool**.
 
@@ -267,6 +269,30 @@ On the GDP data there is no absolute convergence: β ≈ 0 and p = 0.81. Conditi
 β is clearly negative (t = −14.8, half-life about 33 years), and it is negative within every
 club with enough members.
 
+## σ-convergence
+
+σ-convergence asks whether the cross-sectional dispersion shrinks over time. It is not implied
+by β-convergence: poorer units can grow faster while shocks keep the spread constant.
+
+```python
+sigma = cc.sigma_convergence(gdp, clubs=merged)   # measure="sd" (default), "var" or "cv"
+sigma.series      # dispersion per period: all units and each club
+sigma.trend()     # slope per year, Newey-West s.e., change first -> last, converging?
+sigma.plot(index=True)                            # figure below (right panel)
+```
+
+The trend test regresses the dispersion on time with Newey–West standard errors, because
+dispersion is strongly autocorrelated from one year to the next. The lag length follows the
+rule ⌊4(T/100)^(2/9)⌋ unless you set `hac_lags=`, and the estimates match statsmodels in the
+tests. Clubs with fewer than `min_units=3` units are left out: the spread of two units is just
+the gap between them, which is too noisy to read as a trend.
+
+![σ-convergence: levels (left) and indexed to the first year (right)](docs/sigma.png)
+
+On the GDP data, the dispersion across all countries *rises* by 16% between 1970 and 2003
+(σ-divergence), while it falls significantly within each of the five clubs with at least 3
+countries.
+
 ## Command line
 
 ```bash
@@ -289,6 +315,9 @@ FQSB and AQSB. It prints the agreement table and the least stable units, and
 
 `--beta` estimates β-convergence on the unfiltered data, absolute and conditional on the clubs,
 and within each club. `--beta-plot FILE` saves the figure.
+
+`--sigma` reports the trend of dispersion overall and within each club, and `--sigma-plot FILE`
+saves the indexed figure.
 
 `--bootstrap 200 --bootstrap-method units|cycle|endpoint --seed 0` reports the mean agreement
 with the full-sample clubs and the units with confidence below 0.8. With `--hp-filter`, every

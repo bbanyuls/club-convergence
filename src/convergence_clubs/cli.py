@@ -19,6 +19,7 @@ from .filters import hp_filter
 from .logt import CRITICAL_VALUE
 from .panel import balance, fill_gaps, wide_panel
 from .sensitivity import sensitivity
+from .sigma import sigma_convergence
 
 
 def _fraction(text: str) -> float:
@@ -133,6 +134,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="β-convergence on the unfiltered data: absolute, conditional on clubs, by club",
     )
     classic.add_argument("--beta-plot", type=Path, metavar="FILE", help="save the β scatter")
+    classic.add_argument(
+        "--sigma",
+        action="store_true",
+        help="σ-convergence on the unfiltered data: dispersion trend, overall and within clubs",
+    )
+    classic.add_argument("--sigma-plot", type=Path, metavar="FILE", help="save the σ figure")
     return parser
 
 
@@ -233,6 +240,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, ValueError, TypeError, KeyError) as exc:
             print(f"convergence-clubs: error in β-convergence: {exc}", file=sys.stderr)
             return 1
+    if args.sigma or args.sigma_plot:
+        try:
+            _report_sigma(args, raw, result)
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            print(f"convergence-clubs: error in σ-convergence: {exc}", file=sys.stderr)
+            return 1
     if args.bootstrap:
         try:
             _report_bootstrap(args, raw, options)
@@ -282,6 +295,18 @@ def _report_beta(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
 
         matplotlib.use("Agg")
         conditional.plot(theme=args.theme).figure.savefig(args.beta_plot, dpi=150)
+
+
+def _report_sigma(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
+    sigma = sigma_convergence(raw, log=not args.log, clubs=result)
+    trend = sigma.trend()[["n_units", "first", "last", "change", "slope", "t_value", "p_value"]]
+    print(f"\nσ-convergence (sd of log, Newey-West with {sigma.hac_lags} lags)\n")
+    print(trend.to_string(float_format=lambda v: f"{v:.4f}"))
+    if args.sigma_plot:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        sigma.plot(index=True, theme=args.theme).figure.savefig(args.sigma_plot, dpi=150)
 
 
 def _report_bootstrap(args: argparse.Namespace, raw: pd.DataFrame, options: dict) -> None:

@@ -50,6 +50,12 @@ def main() -> None:
     cc.beta_convergence(gdp, clubs=merged, club_effects=True).plot(ax=axes[1])
     save(fig, "beta.png")
 
+    sigma = cc.sigma_convergence(gdp, clubs=merged)
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.2), layout="constrained")
+    sigma.plot(ax=axes[0])
+    sigma.plot(ax=axes[1], index=True)
+    save(fig, "sigma.png")
+
     boot = cc.bootstrap(cc.load_filtered_gdp(), 200, seed=0)
     save(boot.plot_stability().figure, "stability.png")
 
