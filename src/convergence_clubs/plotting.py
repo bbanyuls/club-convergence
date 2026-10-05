@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 import pandas as pd
 
+from .beta import _club_labels, _club_order
 from .logt import cross_sectional_variation, log_t_regression_data, log_t_test, relative_transition
 
 if TYPE_CHECKING:
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from .beta import BetaResult
+    from .dynamics import DynamicsResult
     from .results import Club, ConvergenceClubs
     from .sensitivity import SensitivityResult
     from .sigma import SigmaResult
@@ -778,6 +780,174 @@ def plot_sigma(
     ylabel = LABELS[result.measure] + (" (first period = 1)" if index else "")
     auto = "σ-convergence" + (" (indexed)" if index else "")
     _decorate(ax, th, auto if title == "auto" else title, ylabel)
+    return ax
+
+
+def _luminance(color: str) -> float:
+    """Relative luminance (WCAG) of a colour."""
+    from matplotlib.colors import to_rgb
+
+    def channel(c):
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+    r, g, b = (channel(c) for c in to_rgb(color))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _is_dark(th: Theme) -> bool:
+    return _luminance(th.surface) < 0.5
+
+
+def _text_on(color: str, th: Theme) -> str:
+    """Ink or white, whichever reads better on a cell of ``color``."""
+    return "#ffffff" if _luminance(color) < 0.4 else "#0b0b0b"
+
+
+def plot_transitions(
+    result: DynamicsResult,
+    *,
+    ax: Axes | None = None,
+    annotate: bool = True,
+    theme: str | Theme = "light",
+    title: str | None = "auto",
+) -> Axes:
+    """Heatmap of the transition matrix, with the probabilities written in the cells."""
+    from matplotlib.colors import LinearSegmentedColormap
+
+    th = _theme(theme)
+    ax = _new_axes(ax, th, figsize=(5.6, 4.8))
+    P = result.matrix.to_numpy()
+    cmap = LinearSegmentedColormap.from_list("share", th.sequential)
+    ax.imshow(P, cmap=cmap, vmin=0, vmax=1, interpolation="nearest")
+    k = result.n_classes
+    for edge in np.arange(k - 1) + 0.5:  # surface gaps between cells
+        ax.axhline(edge, color=th.surface, linewidth=2)
+        ax.axvline(edge, color=th.surface, linewidth=2)
+    if annotate:
+        for i in range(k):
+            for j in range(k):
+                if np.isfinite(P[i, j]):
+                    ax.text(j, i, f"{P[i, j]:.2f}", ha="center", va="center",
+                            fontsize=th.font_size, color=_text_on(cmap(P[i, j]), th))  # fmt: skip
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.set_facecolor(th.surface)
+    ax.figure.set_facecolor(th.surface)
+    ax.tick_params(length=0, labelsize=th.font_size - 1, labelcolor=th.ink_secondary)
+    ax.set_xticks(range(k), result.labels, rotation=30, ha="right")
+    ax.set_yticks(range(k), result.labels)
+    auto = f"Transition probabilities ({result.lag}-period)"
+    _decorate(
+        ax, th, auto if title == "auto" else title, "relative income at t",
+        xlabel=f"relative income at t + {result.lag}",
+    )  # fmt: skip
+    return ax
+
+
+def plot_class_distributions(
+    result: DynamicsResult,
+    *,
+    ax: Axes | None = None,
+    theme: str | Theme = "light",
+    title: str | None = "Share of units in each class",
+) -> Axes:
+    """Initial, final and ergodic (long-run) shares of each class, as grouped bars."""
+    from matplotlib.ticker import PercentFormatter
+
+    th = _theme(theme)
+    ax = _new_axes(ax, th, figsize=(5.6, 4.8))
+    shares = result.distributions()
+    k, n = shares.shape
+    width = 0.8 / n
+    for i, column in enumerate(shares.columns):
+        ax.bar(
+            np.arange(k) + (i - (n - 1) / 2) * width, shares[column], width=width * 0.92,
+            color=th.colors[i], label=column, zorder=3,
+        )  # fmt: skip
+    _style_axes(ax, th)
+    ax.set_xticks(range(k), shares.index, rotation=30, ha="right")
+    ax.yaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
+    _legend(ax, th, loc="upper center", ncols=n)
+    ax.set_ylim(0, shares.to_numpy().max() * 1.2)
+    _decorate(ax, th, title, None, xlabel="relative income class")
+    return ax
+
+
+def plot_dynamics(result: DynamicsResult, *, theme: str | Theme = "light") -> Figure:
+    """Transition matrix (left) and initial / final / ergodic distributions (right)."""
+    th = _theme(theme)
+    fig, axes = _plt().subplots(
+        1, 2, figsize=(11.5, 4.6), facecolor=th.surface, layout="constrained",
+        gridspec_kw={"width_ratios": [1.05, 1]},
+    )  # fmt: skip
+    plot_transitions(result, ax=axes[0], theme=th)
+    plot_class_distributions(result, ax=axes[1], theme=th)
+    return fig
+
+
+def plot_densities(
+    result: DynamicsResult,
+    *,
+    ax: Axes | None = None,
+    periods: Sequence[Any] | None = None,
+    rug: bool = True,
+    bandwidth: float | None = None,
+    theme: str | Theme = "light",
+    colors: Colors = None,
+    title: str | None = "auto",
+) -> Axes:
+    """Kernel densities of relative income in some periods (first and last by default).
+
+    The latest period is drawn in the accent colour and earlier ones in
+    lighter steps of the same hue. With clubs, a rug at the bottom shows
+    where each club's units are in the latest period.
+    """
+    from matplotlib.ticker import FixedLocator, FuncFormatter, NullLocator
+
+    th = _theme(theme)
+    ax = _new_axes(ax, th)
+    columns = list(result.values.columns)
+    periods = [columns[0], columns[-1]] if periods is None else list(periods)
+    if len(periods) == 2:
+        line_colors = [th.ink_muted, th.colors[0]]
+    else:
+        # Ordinal ramp: later periods stand out more from the surface. The first
+        # steps of the sequential ramp sit too close to the surface for lines.
+        ramp = th.sequential[2:] if _is_dark(th) else th.sequential[3:]
+        picks = np.linspace(0, len(ramp) - 1, len(periods)).round().astype(int)
+        line_colors = [ramp[i] for i in picks]
+
+    ax.axvline(1.0, color=th.baseline, linewidth=1, zorder=1)
+    for period, color in zip(periods, line_colors, strict=True):
+        density = result.density(period, bandwidth=bandwidth)
+        ax.plot(density.index, density.to_numpy(), color=color, linewidth=2,
+                solid_capstyle="round", label=str(period), zorder=3)  # fmt: skip
+
+    if rug and result.clubs is not None:
+        labels = _club_labels(result.clubs, result.values.index)
+        groups = [g for g in _club_order(result.clubs) if g in set(labels)]
+        palette = _group_colors(result.clubs, groups, th, colors)
+        last = result.values[periods[-1]]
+        for group in groups:
+            x = last[labels == group].to_numpy()
+            ax.plot(x, np.full(len(x), 0.025), linestyle="none", marker="|", markersize=9,
+                    color=palette[group], transform=ax.get_xaxis_transform(), label=group,
+                    zorder=4)  # fmt: skip
+
+    ax.set_xscale("log")
+    low, high = result.values.to_numpy().min() / 2, result.values.to_numpy().max() * 2
+    ticks = [t for t in (0.02, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8) if low <= t <= high]
+    _style_axes(ax, th)
+    ax.xaxis.set_major_locator(FixedLocator(ticks))
+    ax.xaxis.set_minor_locator(NullLocator())
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.set_ylim(bottom=0)
+    _legend(ax, th, loc="upper left", ncols=2 if rug and result.clubs is not None else 1)
+    auto = "Distribution of relative income"
+    _decorate(
+        ax, th, auto if title == "auto" else title, "density (of log relative income)",
+        xlabel="income relative to the cross-sectional mean (log scale)",
+    )  # fmt: skip
     return ax
 
 
