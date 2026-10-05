@@ -3,6 +3,7 @@
 A Python port of the R package ConvergenceClubs (Sichera and Pizzuto, 2019).
 """
 
+from .beta import BetaResult, beta_convergence
 from .bootstrap import bootstrap
 from .clustering import ClubConvergenceWarning, find_clubs
 from .datasets import load_filtered_gdp, load_gdp
@@ -22,6 +23,7 @@ from .plotting import (
     LIGHT,
     Theme,
     plot_average_paths,
+    plot_beta,
     plot_club,
     plot_co_membership,
     plot_cross_sectional_variation,
@@ -41,6 +43,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     "CRITICAL_VALUE",
+    "BetaResult",
     "DARK",
     "LIGHT",
     "Club",
@@ -51,6 +54,7 @@ __all__ = [
     "Theme",
     "adjusted_rand_index",
     "balance",
+    "beta_convergence",
     "bootstrap",
     "compare_clubs",
     "cross_sectional_variation",
@@ -65,6 +69,7 @@ __all__ = [
     "merge_clubs",
     "merge_divergent",
     "plot_average_paths",
+    "plot_beta",
     "plot_club",
     "plot_co_membership",
     "plot_cross_sectional_variation",

@@ -97,3 +97,14 @@ def test_joint_divergent_option(tmp_path, capsys):
     cc.load_filtered_gdp().to_csv(csv)
     assert main([str(csv), "--hac", "AQSB", "--merge-divergent", "--joint-divergent"]) == 0
     assert "1 divergent unit" in capsys.readouterr().out
+
+
+def test_beta_option(tmp_path, capsys):
+    csv, figure = tmp_path / "gdp.csv", tmp_path / "beta.png"
+    cc.load_gdp().to_csv(csv)
+    assert (
+        main([str(csv), "--log", "--hp-filter", "--merge", "PS", "--beta-plot", str(figure)]) == 0
+    )
+    out = capsys.readouterr().out
+    assert "β-convergence 1970-2003" in out and "conditional on clubs" in out
+    assert "within clubs" in out and figure.stat().st_size > 0

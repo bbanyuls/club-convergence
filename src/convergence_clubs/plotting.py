@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
 
+    from .beta import BetaResult
     from .results import Club, ConvergenceClubs
     from .sensitivity import SensitivityResult
 
@@ -622,6 +623,104 @@ def plot_stability(
             text.remove()
         else:
             placed.append(box)
+    return ax
+
+
+def _group_colors(clubs: Any, groups: Sequence[str], th: Theme, colors: Colors) -> dict[str, str]:
+    """Colour per club label: club colours, muted ink for divergent units."""
+    styles = club_styles(clubs, th, colors) if hasattr(clubs, "clubs") else {}
+    out, k = {}, 0
+    for group in groups:
+        if group == "divergent":
+            out[group] = th.ink_muted
+        elif group in styles:
+            out[group] = styles[group]["color"]
+        else:
+            out[group] = th.colors[k % len(th.colors)]
+            k += 1
+    return out
+
+
+def plot_beta(
+    result: BetaResult,
+    *,
+    ax: Axes | None = None,
+    label: Sequence[Any] | None = None,
+    show_fit: bool = True,
+    theme: str | Theme = "light",
+    colors: Colors = None,
+    title: str | None = "auto",
+) -> Axes:
+    """Average growth against initial (log) level, with the fitted β line.
+
+    Units are coloured by club when the result has clubs; with club effects
+    each club gets its own (parallel) fitted line. ``label`` names units.
+    """
+    from matplotlib.ticker import PercentFormatter
+
+    from .beta import _club_order, _fitted_line
+
+    th = _theme(theme)
+    ax = _new_axes(ax, th)
+    units = result.units
+    if "club" in units:
+        groups = [g for g in _club_order(result.clubs) if g in set(units["club"])]
+        palette = _group_colors(result.clubs, groups, th, colors)
+    else:
+        groups, palette = ["all units"], {"all units": th.colors[0]}
+
+    for group in groups:
+        part = units if group == "all units" else units[units["club"] == group]
+        ax.scatter(
+            part["log_initial"], part["growth"], s=30, color=palette[group],
+            edgecolors=th.surface, linewidths=1.2, zorder=3, label=group,
+        )  # fmt: skip
+        if show_fit and result.club_effects and group != "all units" and len(part) > 1:
+            x = np.linspace(part["log_initial"].min(), part["log_initial"].max(), 20)
+            ax.plot(x, _fitted_line(result, x, group), color=palette[group], linewidth=2,
+                    solid_capstyle="round", zorder=4, label="_nolegend_")  # fmt: skip
+    if show_fit and not result.club_effects:
+        x = np.linspace(units["log_initial"].min(), units["log_initial"].max(), 50)
+        ax.plot(x, _fitted_line(result, x), color=th.ink, linewidth=1.5, zorder=4,
+                label="_nolegend_")  # fmt: skip
+
+    years = pd.api.types.is_numeric_dtype(pd.Index([result.start, result.end]))
+    unit = "years" if years else "periods"
+    if not result.converges():
+        life = "n/a (β not significantly negative)"
+    elif np.isfinite(result.half_life):
+        life = f"{result.half_life:.0f} {unit}"
+    else:
+        life = "n/a"
+    ax.text(
+        0.98, 0.96,
+        f"β = {result.beta:.4f} (s.e. {result.std_err:.4f}), t = {result.t_value:.2f}\n"
+        f"half-life: {life}",
+        transform=ax.transAxes, ha="right", va="top", fontsize=th.font_size - 0.5,
+        color=th.ink_secondary,
+    )  # fmt: skip
+    for name in label or ():
+        if name in units.index:
+            ax.annotate(
+                str(name), (units.loc[name, "log_initial"], units.loc[name, "growth"]),
+                xytext=(5, 3), textcoords="offset points", fontsize=th.font_size - 1,
+                color=th.ink_secondary,
+            )  # fmt: skip
+
+    _style_axes(ax, th)
+    ax.axhline(0, color=th.baseline, linewidth=1, zorder=1)
+    ax.yaxis.set_major_formatter(PercentFormatter(1.0, decimals=1))
+    if len(groups) > 1:
+        if len(groups) > 4:
+            _legend(ax, th, loc="center left", bbox_to_anchor=(1.0, 0.5))
+        else:
+            _legend(ax, th, loc="lower left")
+    per = "per year" if years else "per period"
+    auto = "β-convergence" + (" conditional on clubs" if result.club_effects else "")
+    _decorate(
+        ax, th, auto if title == "auto" else title, f"average growth {per}",
+        xlabel=f"log level in {result.start}",
+    )  # fmt: skip
     return ax
 
 
