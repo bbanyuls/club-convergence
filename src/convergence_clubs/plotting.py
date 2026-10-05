@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from .beta import BetaResult
+    from .determinants import DeterminantsResult
     from .dynamics import DynamicsResult
     from .results import Club, ConvergenceClubs
     from .sensitivity import SensitivityResult
@@ -953,6 +954,43 @@ def plot_densities(
     _decorate(
         ax, th, auto if title == "auto" else title, "density (of log relative income)",
         xlabel="income relative to the cross-sectional mean (log scale)",
+    )  # fmt: skip
+    return ax
+
+
+def plot_determinants(
+    result: DeterminantsResult,
+    *,
+    ax: Axes | None = None,
+    level: float = 0.95,
+    theme: str | Theme = "light",
+    title: str | None = "auto",
+) -> Axes:
+    """Coefficients of the ordered model with ``level`` confidence intervals.
+
+    Positive coefficients raise the probability of belonging to a higher club.
+    """
+    from statistics import NormalDist
+
+    th = _theme(theme)
+    coef = result.coefficients.iloc[::-1]  # first covariate on top
+    ax = _new_axes(ax, th, figsize=(6.4, 0.9 + 0.45 * len(coef)))
+    z = NormalDist().inv_cdf(0.5 + level / 2)
+    y = np.arange(len(coef))
+    low = coef["coef"] - z * coef["std_err"]
+    high = coef["coef"] + z * coef["std_err"]
+    ax.axvline(0, color=th.baseline, linewidth=1, zorder=1)
+    ax.hlines(y, low, high, color=th.colors[0], linewidth=2, zorder=2)
+    ax.scatter(coef["coef"], y, s=40, color=th.colors[0], edgecolors=th.surface,
+               linewidths=1.5, zorder=3)  # fmt: skip
+    _style_axes(ax, th)
+    ax.grid(False, axis="y")
+    ax.grid(True, axis="x", color=th.grid, linewidth=1)
+    ax.set_yticks(y, list(coef.index))
+    auto = f"Determinants of club membership (ordered {result.model})"
+    _decorate(
+        ax, th, auto if title == "auto" else title, None,
+        xlabel=f"coefficient ({level:.0%} interval); > 0 means a higher club is more likely",
     )  # fmt: skip
     return ax
 

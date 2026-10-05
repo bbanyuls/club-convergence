@@ -16,6 +16,7 @@ from . import __version__
 from .beta import beta_convergence
 from .bootstrap import bootstrap
 from .clustering import ClubConvergenceWarning, find_clubs
+from .determinants import club_determinants
 from .dynamics import distribution_dynamics
 from .filters import hp_filter
 from .logt import CRITICAL_VALUE
@@ -201,6 +202,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="distribution dynamics: transition matrix of relative income classes",
     )
+    classic.add_argument(
+        "--determinants",
+        type=Path,
+        metavar="CSV",
+        help="ordered logit of club membership on the covariates in CSV (first column: unit)",
+    )
+    classic.add_argument("--determinants-model", choices=["logit", "probit"], default="logit")
     classic.add_argument("--dynamics-classes", type=int, default=5, metavar="K")
     classic.add_argument("--dynamics-lag", type=int, default=5, metavar="L")
     classic.add_argument(
@@ -366,6 +374,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             _report_sigma(args, raw, result)
         except (OSError, ValueError, TypeError, KeyError) as exc:
             print(f"convergence-clubs: error in σ-convergence: {exc}", file=sys.stderr)
+            return 1
+    if args.determinants:
+        try:
+            covariates = pd.read_csv(args.determinants, sep=args.sep, index_col=0)
+            fit = club_determinants(result, covariates, model=args.determinants_model)
+            print(
+                f"\ndeterminants of club membership (ordered {fit.model}, n = {fit.n}, "
+                f"pseudo-R2 = {fit.pseudo_r2:.3f}); > 0 means a higher club is more likely\n"
+            )
+            print(fit.summary().to_string(float_format=lambda v: f"{v:.4f}"))
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            print(f"convergence-clubs: error in determinants: {exc}", file=sys.stderr)
             return 1
     if args.dynamics or args.dynamics_plot:
         try:

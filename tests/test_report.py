@@ -1,6 +1,7 @@
 import re
 
 import numpy as np
+import pandas as pd
 import pytest
 
 import convergence_clubs as cc
@@ -103,3 +104,14 @@ def test_clustering_options_reach_every_analysis():
             cc.hp_filter(np.log(cc.load_gdp())), cstar=-1, sort_fraction=0.1
         ).merge("PS")
     assert sensitivity["sizes"].iloc[0] == "-".join(str(len(c)) for c in expected)
+
+
+def test_determinants_section():
+    covariates = pd.DataFrame({"log_h": np.log(cc.load_productivity("h")[1990])})
+    rep = cc.report(
+        cc.load_productivity("lp"), convention="Stata", time_trim=0.333, covariates=covariates,
+        bootstrap=0, sensitivity=False, beta=False, sigma=False, dynamics=False,
+        dark_mode=False, dpi=30,
+    )  # fmt: skip
+    assert [s.title for s in rep.sections][-2] == "Determinants of club membership"
+    assert "<td>log_h</td>" in rep.to_html()

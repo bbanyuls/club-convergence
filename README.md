@@ -456,6 +456,38 @@ poorest class and 32% in the richest, against 12% in the middle class. By 2003 t
 two clear peaks, at about 0.12× and 2× the mean, and the club rugs show which clubs sit under
 each peak.
 
+## What explains club membership?
+
+Once the clubs are known, applied papers usually ask which initial conditions predict
+membership (e.g. Bartkowska and Riedl, 2012). `club_determinants` estimates an **ordered logit
+or probit** of the club rank. Higher values mean a club with a higher relative level, so a
+positive coefficient makes a higher club more likely. Divergent units are left out.
+
+```python
+lp = cc.load_productivity("lp")
+clubs = cc.find_clubs(cc.hp_filter(np.log(lp)), convention="Stata", time_trim=0.333).merge("PS")
+covariates = pd.DataFrame({
+    "log human capital, 1990": np.log(cc.load_productivity("h")[1990]),
+    "log capital-output ratio, 1990": np.log(cc.load_productivity("ky")[1990]),
+    "log TFP, 1990": np.log(cc.load_productivity("tfp")[1990]),
+    "Africa": (cc.productivity_info()["region"] == "Africa").astype(float),
+})
+fit = cc.club_determinants(clubs, covariates)          # model="probit" also available
+fit.summary()           # coef, s.e., z, p, odds ratios
+fit.predict_proba(covariates)                          # probability of each club
+fit.plot()
+```
+
+![Determinants of labor-productivity club membership](docs/determinants.png)
+
+The estimator is maximum likelihood with Newton–Raphson steps and analytic gradients. Standard
+errors come from the observed information. Coefficients, standard errors and thresholds match
+statsmodels' `OrderedModel` in the tests. `report(..., covariates=...)` adds this section to the
+report, and the CLI option is `--determinants covariates.csv`.
+
+In this example, higher human capital and TFP in 1990 make a higher productivity club more
+likely, and being in Africa makes it less likely (pseudo-R² = 0.55).
+
 ## Command line
 
 ```bash
@@ -588,6 +620,8 @@ uv run python scripts/make_figures.py  # regenerate the figures in docs/
 - Quah, D. T. (1996). Twin peaks: growth and convergence in models of distribution dynamics.
   *Economic Journal*, 106(437), 1045-1055.
 - Shorrocks, A. F. (1978). The measurement of mobility. *Econometrica*, 46(5), 1013-1024.
+- Bartkowska, M. and Riedl, A. (2012). Regional convergence clubs in Europe: identification
+  and conditioning factors. *Economic Modelling*, 29(1), 22-31.
 - Andrews, D. W. K. (1991). Heteroskedasticity and autocorrelation consistent covariance
   matrix estimation. *Econometrica*, 59(3), 817-858.
 
