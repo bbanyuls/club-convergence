@@ -438,8 +438,12 @@ def plot_cross_sectional_variation(
             color=th.ink_muted,
         )
     _style_axes(ax, th, x, labels)
-    if legend and len(ax.get_lines()) > 2:
-        _legend(ax, th, loc="best")
+    n_entries = len([ln for ln in ax.get_lines() if not ln.get_label().startswith("_")])
+    if legend and n_entries > 1:
+        if n_entries > 4:  # a long legend would cover the lines
+            _legend(ax, th, loc="center left", bbox_to_anchor=(1.0, 0.5))
+        else:
+            _legend(ax, th, loc="best")
     _decorate(ax, th, title, "H(t)")
     return ax
 

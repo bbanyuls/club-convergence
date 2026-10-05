@@ -38,6 +38,7 @@ from .plotting import (
     plot_transition_paths,
     plot_transitions,
 )
+from .report import Report, report
 from .results import Club, ConvergenceClubs
 from .sensitivity import (
     SensitivityResult,
@@ -59,6 +60,7 @@ __all__ = [
     "ConvergenceClubs",
     "DynamicsResult",
     "LogTResult",
+    "Report",
     "SensitivityResult",
     "SigmaResult",
     "Theme",
@@ -96,6 +98,7 @@ __all__ = [
     "plot_transition_paths",
     "plot_transitions",
     "relative_transition",
+    "report",
     "sensitivity",
     "sigma_convergence",
     "wide_panel",
