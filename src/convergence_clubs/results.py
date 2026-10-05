@@ -265,6 +265,12 @@ class PlotAccessor:
 
         return plot_cross_sectional_variation(self._result, **kwargs)
 
+    def interactive(self, **kwargs):
+        """Interactive plotly figure; see :mod:`convergence_clubs.interactive`."""
+        from .interactive import transition_paths_figure
+
+        return transition_paths_figure(self._result, **kwargs)
+
     def log_t(self, club: int | str | None = None, **kwargs) -> Axes:
         """log t regression diagnostic; see :func:`~convergence_clubs.plot_log_t`."""
         from .plotting import plot_log_t

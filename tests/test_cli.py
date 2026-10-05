@@ -119,3 +119,10 @@ def test_sigma_option(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "σ-convergence (sd of log" in out and "all units" in out and "club5" in out
     assert figure.stat().st_size > 0
+
+
+def test_html_option(tmp_path, capsys):
+    csv, page = tmp_path / "f.csv", tmp_path / "clubs.html"
+    cc.load_filtered_gdp().to_csv(csv)
+    assert main([str(csv), "--html", str(page)]) == 0
+    assert page.stat().st_size > 10_000
