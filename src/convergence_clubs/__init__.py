@@ -26,7 +26,15 @@ from .logt import (
 )
 from .maps import match_regions, plot_map
 from .merging import merge_clubs, merge_divergent
-from .pairwise import ADFResult, PairwiseResult, adf_test, mackinnon_pvalue, pairwise_convergence
+from .pairwise import (
+    ADFResult,
+    KPSSResult,
+    PairwiseResult,
+    adf_test,
+    kpss_test,
+    mackinnon_pvalue,
+    pairwise_convergence,
+)
 from .panel import balance, describe_missing, fill_gaps, wide_panel
 from .plotting import (
     DARK,
@@ -71,6 +79,7 @@ __all__ = [
     "ConvergenceClubs",
     "DeterminantsResult",
     "DynamicsResult",
+    "KPSSResult",
     "LogTResult",
     "PairwiseResult",
     "Report",
@@ -91,6 +100,7 @@ __all__ = [
     "fill_gaps",
     "find_clubs",
     "hp_filter",
+    "kpss_test",
     "load_filtered_gdp",
     "load_gdp",
     "load_productivity",

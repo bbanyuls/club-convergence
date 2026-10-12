@@ -22,6 +22,11 @@
   100(2), 223-251.
 - Pesaran, M. H. (2007). A pairwise approach to testing for output and growth convergence.
   *Journal of Econometrics*, 138(1), 312-355.
+- Kwiatkowski, D., Phillips, P. C. B., Schmidt, P. and Shin, Y. (1992). Testing the null
+  hypothesis of stationarity against the alternative of a unit root. *Journal of Econometrics*,
+  54(1-3), 159-178.
+- Hobijn, B., Franses, P. H. and Ooms, M. (1998). Generalisations of the KPSS-test for
+  stationarity. Econometric Institute Report 9802, Erasmus University Rotterdam.
 - MacKinnon, J. G. (1994). Approximate asymptotic distribution functions for unit-root and
   cointegration tests. *Journal of Business & Economic Statistics*, 12(2), 167-176.
 - Quah, D. T. (1993). Galton's fallacy and tests of the convergence hypothesis.

@@ -31,7 +31,7 @@ All notable changes to this project are documented here. The format follows
 - `beta_convergence()`: absolute, conditional on controls or on clubs, and within each club ([#15](https://github.com/bbanyuls/club-convergence/pull/15)).
 - `sigma_convergence()`: dispersion trends with Newey–West errors ([#16](https://github.com/bbanyuls/club-convergence/pull/16)).
 - `distribution_dynamics()`: Markov transition matrices, ergodic distribution, mobility and densities ([#19](https://github.com/bbanyuls/club-convergence/pull/19)).
-- `pairwise_convergence()` and `adf_test()`: Pesaran's (2007) pairwise test, overall and within or between clubs ([#37](https://github.com/bbanyuls/club-convergence/pull/37)).
+- `pairwise_convergence()` and `adf_test()`: Pesaran's (2007) pairwise test, overall and within or between clubs ([#37](https://github.com/bbanyuls/club-convergence/pull/37)). `kpss_test()` and `kpss=True` add Pesaran's KPSS confirmation ([#39](https://github.com/bbanyuls/club-convergence/pull/39)).
 - `club_determinants()`: ordered logit/probit of club membership ([#31](https://github.com/bbanyuls/club-convergence/pull/31)).
 
 ### Plots and output
