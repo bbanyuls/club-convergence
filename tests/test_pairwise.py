@@ -132,3 +132,43 @@ def test_errors():
     gappy.iloc[0, 3] = np.nan
     with pytest.raises(ValueError, match="missing"):
         cc.pairwise_convergence(gappy)
+
+
+@pytest.mark.parametrize("regression", ["c", "ct"])
+@pytest.mark.parametrize("nlags", ["auto", "legacy", 3])
+def test_kpss_matches_statsmodels(regression, nlags):
+    from statsmodels.tsa.stattools import kpss
+
+    rng = np.random.default_rng(11)
+    for _ in range(40):
+        n = int(rng.integers(15, 150))
+        x = _arma(rng, n, rng.choice([1.0, 0.9, 0.5, 0.0])) + 0.03 * rng.normal() * np.arange(n)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")  # statsmodels warns when p is outside its table
+            stat, p, lags, _ = kpss(x, regression=regression, nlags=nlags, result_object=False)
+        ours = cc.kpss_test(x, regression=regression, nlags=nlags)
+        assert ours.lags == lags
+        assert ours.stat == pytest.approx(stat, abs=1e-12)
+        assert ours.p_value == pytest.approx(p, abs=1e-12)
+        assert 0.01 <= ours.p_value <= 0.10
+
+
+def test_kpss_errors():
+    with pytest.raises(ValueError, match="regression"):
+        cc.kpss_test(np.arange(30.0), regression="n")
+    with pytest.raises(ValueError, match="nlags"):
+        cc.kpss_test(np.arange(30.0), nlags=40)
+
+
+def test_kpss_in_pairwise_summary():
+    data, clubs = _two_groups()
+    result = cc.pairwise_convergence(data, clubs=clubs, kpss=True)
+    pairs, summary = result.pairs, result.summary()
+    assert {"kpss_stat", "kpss_p", "kpss_reject"} <= set(pairs.columns)
+    both = (pairs["reject"] & ~pairs["kpss_reject"]).mean()
+    assert summary.loc["all pairs", "share_both_agree"] == pytest.approx(both)
+    # Stationary gaps within groups, unit roots between them.
+    assert summary.loc["within clubs", "share_kpss_stationary"] > 0.8
+    assert summary.loc["between clubs", "share_kpss_stationary"] < 0.3
+    assert "share_both_agree" in result.by_club()
+    assert "share_both_agree" not in cc.pairwise_convergence(data, clubs=clubs).summary()

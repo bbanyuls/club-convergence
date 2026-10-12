@@ -213,7 +213,7 @@ def build_parser() -> argparse.ArgumentParser:
     classic.add_argument(
         "--pairwise",
         action="store_true",
-        help="Pesaran (2007) pairwise test: ADF on every gap, within and between clubs",
+        help="Pesaran (2007) pairwise test: ADF and KPSS on every gap, within/between clubs",
     )
     classic.add_argument("--dynamics-classes", type=int, default=5, metavar="K")
     classic.add_argument("--dynamics-lag", type=int, default=5, metavar="L")
@@ -395,8 +395,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 1
     if args.pairwise:
         try:
-            pw = pairwise_convergence(raw, log=not args.log, clubs=result)
-            print(f"\npairwise convergence (Pesaran, 2007): ADF on {len(pw.pairs)} gaps\n")
+            pw = pairwise_convergence(raw, log=not args.log, clubs=result, kpss=True)
+            print(f"\npairwise convergence (Pesaran, 2007): ADF and KPSS on {len(pw.pairs)} gaps\n")
             print(pw.summary().to_string(float_format=lambda v: f"{v:.3f}"))
         except (OSError, ValueError, TypeError, KeyError) as exc:
             print(f"convergence-clubs: error in pairwise test: {exc}", file=sys.stderr)

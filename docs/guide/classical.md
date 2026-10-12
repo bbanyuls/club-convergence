@@ -107,7 +107,18 @@ pw.matrix()      # p-values as a units x units table
 pw.plot()        # heatmap ordered by club
 
 cc.adf_test(series, regression="c", autolag="AIC")   # the ADF test on its own
+cc.kpss_test(series, regression="c", nlags="auto")    # the KPSS test on its own
 ```
+
+Pesaran confirms the ADF results with the **KPSS** test, whose null is the opposite: stationarity. With
+`pairwise_convergence(..., kpss=True)`, `summary()` also reports two shares:
+- `share_kpss_stationary`: pairs where KPSS does not reject stationarity;
+- `share_both_agree`: pairs where both tests point to convergence, meaning ADF rejects the unit
+  root and KPSS does not reject stationarity.
+
+`kpss_test` follows statsmodels' `kpss`: Bartlett-kernel long-run variance and the automatic lag of
+Hobijn et al. (1998). Its p-values are interpolated in the KPSS table, so they lie in [0.01, 0.10].
+It matches statsmodels on 1,800 series.
 
 `adf_test` follows statsmodels' `adfuller` exactly:
 - the maximum lag is ⌈12·(T/100)^¼⌉;
@@ -121,13 +132,16 @@ In the tests, the statistic, the chosen lag and the p-value match statsmodels on
 
 On the GDP data the unit root is rejected for **12.8%** of all 11,476 pairs (against 5% expected
 without convergence). It is rejected for **15.9%** of pairs within clubs and **11.8%** between clubs.
-The ordering is the one the clubs predict, but the shares are low. With 34 annual observations, an
+KPSS sharpens the contrast: stationarity is not rejected for **38.9%** of within-club pairs, against
+**25.0%** between clubs. Both tests agree on convergence for 8.0% of within-club pairs and 5.8% of
+between-club pairs. The ordering is the one the clubs predict, but the shares are low. With 34 annual
+observations, an
 ADF test has little power against slow convergence, which Pesaran (2007) himself discusses. On a
 simulated panel with a stationary gap inside each group and a unit root between groups, the tests
 reject for over 80% of within-group pairs and under 30% of between-group pairs. So read low shares
 on short real panels as weak evidence, not as evidence against convergence.
 
-The CLI option is `--pairwise`.
+The CLI option is `--pairwise`, which runs both tests.
 
 ## What explains club membership?
 

@@ -134,6 +134,76 @@ def adf_test(
     return ADFResult(stat, mackinnon_pvalue(stat, regression), lags, nobs)
 
 
+# KPSS critical values (Kwiatkowski et al., 1992, table 1) for p = 0.10, 0.05, 0.025, 0.01.
+_KPSS_CRITICAL = {"c": (0.347, 0.463, 0.574, 0.739), "ct": (0.119, 0.146, 0.176, 0.216)}
+_KPSS_P = (0.10, 0.05, 0.025, 0.01)
+
+
+@dataclass(frozen=True)
+class KPSSResult:
+    """KPSS test: H0 stationarity, rejected for small p-values.
+
+    p-values are interpolated in the KPSS table, so they lie in [0.01, 0.10]:
+    0.10 means "0.10 or more" and 0.01 means "0.01 or less".
+    """
+
+    stat: float
+    p_value: float
+    lags: int
+
+
+def _kpss_lags(resid: np.ndarray) -> int:
+    """Automatic bandwidth of Hobijn, Franses and Ooms (1998), Bartlett kernel."""
+    nobs = resid.size
+    s0 = float(resid @ resid) / nobs
+    s1 = 0.0
+    for i in range(1, int(nobs ** (2.0 / 9.0)) + 1):
+        product = float(resid[i:] @ resid[: nobs - i]) / (nobs / 2.0)
+        s0 += product
+        s1 += i * product
+    gamma = 1.1447 * ((s1 / s0) ** 2) ** (1.0 / 3.0)
+    return int(gamma * nobs ** (1.0 / 3.0))
+
+
+def kpss_test(
+    x: np.ndarray | pd.Series,
+    *,
+    regression: Regression | str = "c",
+    nlags: int | Literal["auto", "legacy"] = "auto",
+) -> KPSSResult:
+    """KPSS stationarity test (Kwiatkowski, Phillips, Schmidt and Shin, 1992).
+
+    The null is that ``x`` is stationary around a level (``"c"``) or a trend
+    (``"ct"``). The long-run variance uses Bartlett weights with ``nlags``
+    lags: ``"auto"`` (Hobijn et al., 1998), ``"legacy"`` (``ceil(12 (n/100)^(1/4))``)
+    or a number. This follows statsmodels' ``kpss``.
+    """
+    if regression not in _KPSS_CRITICAL:
+        raise ValueError("regression must be 'c' or 'ct'")
+    x = np.asarray(x, dtype=float)
+    nobs = x.size
+    if regression == "ct":
+        trend = np.column_stack([np.ones(nobs), np.arange(1.0, nobs + 1)])
+        resid = x - trend @ np.linalg.lstsq(trend, x, rcond=None)[0]
+    else:
+        resid = x - x.mean()
+    if nlags == "auto":
+        lags = min(_kpss_lags(resid), nobs - 1)
+    elif nlags == "legacy":
+        lags = min(int(math.ceil(12.0 * (nobs / 100.0) ** 0.25)), nobs - 1)
+    elif isinstance(nlags, int) and 0 <= nlags < nobs:
+        lags = nlags
+    else:
+        raise ValueError("nlags must be 'auto', 'legacy' or an integer below the sample size")
+    variance = float(resid @ resid)
+    for i in range(1, lags + 1):
+        variance += 2 * float(resid[i:] @ resid[: nobs - i]) * (1.0 - i / (lags + 1.0))
+    variance /= nobs
+    stat = float(np.sum(np.cumsum(resid) ** 2) / nobs**2 / variance)
+    p_value = float(np.interp(stat, _KPSS_CRITICAL[regression], _KPSS_P))
+    return KPSSResult(stat, p_value, lags)
+
+
 @dataclass(frozen=True, eq=False)
 class PairwiseResult:
     """ADF tests on the gaps between every pair of units (Pesaran, 2007)."""
@@ -155,14 +225,21 @@ class PairwiseResult:
             groups["within clubs"] = self.pairs["same_club"].to_numpy(dtype=bool)
             groups["between clubs"] = self.pairs["between_clubs"].to_numpy(dtype=bool)
         reject = self.pairs["reject"].to_numpy(dtype=bool)
-        rows = {
-            name: {
+        kpss = "kpss_reject" in self.pairs
+        stationary = ~self.pairs["kpss_reject"].to_numpy(dtype=bool) if kpss else None
+        rows = {}
+        for name, mask in groups.items():
+            row: dict[str, Any] = {
                 "n_pairs": int(mask.sum()),
                 "share_rejected": float(reject[mask].mean()) if mask.any() else np.nan,
                 "expected_under_null": self.alpha,
             }
-            for name, mask in groups.items()
-        }
+            if stationary is not None:
+                share = stationary[mask].mean() if mask.any() else np.nan
+                both = (reject & stationary)[mask].mean() if mask.any() else np.nan
+                row["share_kpss_stationary"] = float(share)
+                row["share_both_agree"] = float(both)
+            rows[name] = row
         return pd.DataFrame.from_dict(rows, orient="index").rename_axis("pairs")
 
     def by_club(self) -> pd.DataFrame:
@@ -171,9 +248,12 @@ class PairwiseResult:
             raise ValueError("pass clubs= to pairwise_convergence() to split the pairs by club")
         from .beta import _club_order
 
-        within = self.pairs[self.pairs["same_club"]]
+        within = self.pairs[self.pairs["same_club"]].copy()
         table = within.groupby("club_i")["reject"].agg(["size", "mean"])
         table.columns = ["n_pairs", "share_rejected"]
+        if "kpss_reject" in within:
+            within["both"] = within["reject"] & ~within["kpss_reject"]
+            table["share_both_agree"] = within.groupby("club_i")["both"].mean()
         order = [c for c in _club_order(self.clubs) if c in table.index]
         return table.loc[order].rename_axis("club")
 
@@ -212,6 +292,8 @@ def pairwise_convergence(
     regression: Regression | str = "c",
     max_lag: int | None = None,
     autolag: AutoLag | str | None = "AIC",
+    kpss: bool = False,
+    kpss_nlags: int | Literal["auto", "legacy"] = "auto",
 ) -> PairwiseResult:
     """Pesaran's (2007) pairwise test: ADF tests on every gap ``y_it - y_jt``.
 
@@ -229,6 +311,11 @@ def pairwise_convergence(
         with a divergent unit count as between clubs).
     regression, max_lag, autolag
         Passed to :func:`adf_test`.
+    kpss, kpss_nlags
+        Also run the KPSS stationarity test (:func:`kpss_test`) on every gap,
+        as Pesaran (2007) does. A pair is then strong evidence of convergence
+        when the ADF test rejects the unit root *and* KPSS does not reject
+        stationarity (``summary()`` reports that share).
     """
     from .beta import _club_labels
 
@@ -246,9 +333,16 @@ def pairwise_convergence(
     for i, j in combinations(range(len(units)), 2):
         test = adf_test(values[i] - values[j], regression=regression, max_lag=max_lag,
                         autolag=autolag)  # fmt: skip
-        rows.append((units[i], units[j], test.stat, test.p_value, test.lags, test.nobs))
-    pairs = pd.DataFrame(rows, columns=["unit_i", "unit_j", "adf_stat", "p_value", "lags", "nobs"])
+        row = [units[i], units[j], test.stat, test.p_value, test.lags, test.nobs]
+        if kpss:
+            stationarity = kpss_test(values[i] - values[j], regression=regression, nlags=kpss_nlags)
+            row += [stationarity.stat, stationarity.p_value]
+        rows.append(tuple(row))
+    columns = ["unit_i", "unit_j", "adf_stat", "p_value", "lags", "nobs"]
+    pairs = pd.DataFrame(rows, columns=columns + (["kpss_stat", "kpss_p"] if kpss else []))
     pairs["reject"] = pairs["p_value"] < alpha
+    if kpss:
+        pairs["kpss_reject"] = pairs["kpss_p"] < alpha
     if clubs is not None:
         labels = _club_labels(clubs, units)
         pairs["club_i"] = labels.reindex(pairs["unit_i"]).to_numpy()

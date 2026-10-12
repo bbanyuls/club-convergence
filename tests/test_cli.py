@@ -210,4 +210,5 @@ def test_pairwise_option(tmp_path, capsys):
     cc.load_gdp().iloc[:30].to_csv(csv)
     assert main([str(csv), "--log", "--hp-filter", "--merge", "PS", "--pairwise"]) == 0
     out = capsys.readouterr().out
-    assert "ADF on 435 gaps" in out and "within clubs" in out
+    assert "ADF and KPSS on 435 gaps" in out and "within clubs" in out
+    assert "share_both_agree" in out
