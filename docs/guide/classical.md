@@ -1,4 +1,4 @@
-# β, σ, distribution dynamics and determinants
+# β, σ, distribution dynamics, pairwise tests and determinants
 
 Classical convergence measures that complement the clubs, and what explains club membership.
 
@@ -89,6 +89,45 @@ On the GDP data, the long-run distribution piles up at both ends: 28% of countri
 poorest class and 32% in the richest, against 12% in the middle class. By 2003 the density has
 two clear peaks, at about 0.12× and 2× the mean, and the club rugs show which clubs sit under
 each peak.
+
+## Pairwise convergence (Pesaran, 2007)
+
+Pesaran's test looks at every pair of units. Two economies converge if the gap between their log
+incomes, y_it − y_jt, is **stationary**. `pairwise_convergence` runs an augmented Dickey–Fuller
+test on all N(N−1)/2 gaps and reports the share of pairs where the unit root is rejected.
+Without convergence that share should be close to the size α of each test; with convergence it
+approaches 1. With clubs, the pairs are split into **within-club** and **between-club** pairs,
+which gives an independent check on the clustering.
+
+```python
+pw = cc.pairwise_convergence(gdp, clubs=merged)   # levels; log=False if already in logs
+pw.summary()     # share rejected: all pairs, within clubs, between clubs, vs alpha
+pw.by_club()     # share rejected inside each club
+pw.matrix()      # p-values as a units x units table
+pw.plot()        # heatmap ordered by club
+
+cc.adf_test(series, regression="c", autolag="AIC")   # the ADF test on its own
+```
+
+`adf_test` follows statsmodels' `adfuller` exactly:
+- the maximum lag is ⌈12·(T/100)^¼⌉;
+- AIC or BIC chooses the lag on a common sample;
+- the chosen regression is refit on the full sample;
+- p-values are MacKinnon's (1994).
+
+In the tests, the statistic, the chosen lag and the p-value match statsmodels on 360 series.
+
+![Pairwise ADF evidence, ordered by club](../pairwise.png)
+
+On the GDP data the unit root is rejected for **12.8%** of all 11,476 pairs (against 5% expected
+without convergence). It is rejected for **15.9%** of pairs within clubs and **11.8%** between clubs.
+The ordering is the one the clubs predict, but the shares are low. With 34 annual observations, an
+ADF test has little power against slow convergence, which Pesaran (2007) himself discusses. On a
+simulated panel with a stationary gap inside each group and a unit root between groups, the tests
+reject for over 80% of within-group pairs and under 30% of between-group pairs. So read low shares
+on short real panels as weak evidence, not as evidence against convergence.
+
+The CLI option is `--pairwise`.
 
 ## What explains club membership?
 

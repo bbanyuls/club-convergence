@@ -98,6 +98,9 @@ def main() -> None:
     )
     save(cc.club_determinants(lp_clubs, covariates).plot().figure, "determinants.png")
 
+    pairwise = cc.pairwise_convergence(gdp, clubs=merged)
+    save(pairwise.plot().figure, "pairwise.png")
+
     example = cc.report(gdp, title="Convergence of GDP per capita, 152 countries, 1970–2003")
     print("wrote", example.save(DOCS / "report-example.html"))
 

@@ -20,6 +20,10 @@
   142-151.
 - Barro, R. J. and Sala-i-Martin, X. (1992). Convergence. *Journal of Political Economy*,
   100(2), 223-251.
+- Pesaran, M. H. (2007). A pairwise approach to testing for output and growth convergence.
+  *Journal of Econometrics*, 138(1), 312-355.
+- MacKinnon, J. G. (1994). Approximate asymptotic distribution functions for unit-root and
+  cointegration tests. *Journal of Business & Economic Statistics*, 12(2), 167-176.
 - Quah, D. T. (1993). Galton's fallacy and tests of the convergence hypothesis.
   *Scandinavian Journal of Economics*, 95(4), 427-443.
 - Quah, D. T. (1996). Twin peaks: growth and convergence in models of distribution dynamics.

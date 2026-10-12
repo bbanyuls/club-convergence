@@ -203,3 +203,11 @@ def test_determinants_option(tmp_path, capsys):
     assert main([*args, "--merge", "PS", "--determinants", str(cov)]) == 0
     out = capsys.readouterr().out
     assert "determinants of club membership (ordered logit, n = 104" in out and "log_h" in out
+
+
+def test_pairwise_option(tmp_path, capsys):
+    csv = tmp_path / "gdp.csv"
+    cc.load_gdp().iloc[:30].to_csv(csv)
+    assert main([str(csv), "--log", "--hp-filter", "--merge", "PS", "--pairwise"]) == 0
+    out = capsys.readouterr().out
+    assert "ADF on 435 gaps" in out and "within clubs" in out

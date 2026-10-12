@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from .beta import BetaResult
     from .determinants import DeterminantsResult
     from .dynamics import DynamicsResult
+    from .pairwise import PairwiseResult
     from .results import Club, ConvergenceClubs
     from .sensitivity import SensitivityResult
     from .sigma import SigmaResult
@@ -992,6 +993,75 @@ def plot_determinants(
         ax, th, auto if title == "auto" else title, None,
         xlabel=f"coefficient ({level:.0%} interval); > 0 means a higher club is more likely",
     )  # fmt: skip
+    return ax
+
+
+def plot_pairwise(
+    result: PairwiseResult,
+    *,
+    ax: Axes | None = None,
+    unit_labels: bool | Literal["auto"] = "auto",
+    colorbar: bool = True,
+    theme: str | Theme = "light",
+    title: str | None = "auto",
+) -> Axes:
+    """Heatmap of pairwise ADF p-values (darker = stronger evidence of a stationary gap).
+
+    With clubs, units are ordered by club and the clubs are outlined, so
+    convergence within clubs shows as darker blocks on the diagonal.
+    """
+    from matplotlib.colors import LinearSegmentedColormap
+
+    from .beta import _club_labels, _club_order
+
+    th = _theme(theme)
+    ax = _new_axes(ax, th, figsize=(6.4, 5.6))
+    units = result.units
+    blocks: list[tuple[str, int]] = []
+    if result.clubs is not None:
+        labels = _club_labels(result.clubs, units)
+        order: list[int] = []
+        for club in _club_order(result.clubs):
+            members = [i for i, lab in enumerate(labels) if lab == club]
+            if members:
+                order += members
+                blocks.append((club, len(members)))
+    else:
+        order = list(range(len(units)))
+    evidence = 1.0 - result.matrix().to_numpy()[np.ix_(order, order)]
+    np.fill_diagonal(evidence, np.nan)
+
+    cmap = LinearSegmentedColormap.from_list("evidence", th.sequential).with_extremes(
+        bad=th.surface
+    )
+    image = ax.imshow(evidence, cmap=cmap, vmin=0, vmax=1, interpolation="nearest")
+    for edge in np.cumsum([size for _, size in blocks])[:-1] - 0.5:
+        ax.axhline(edge, color=th.surface, linewidth=1.5)
+        ax.axvline(edge, color=th.surface, linewidth=1.5)
+    for side in ("top", "right", "bottom", "left"):
+        ax.spines[side].set_visible(False)
+    ax.tick_params(length=0, labelsize=th.font_size - 1, labelcolor=th.ink_secondary)
+    names = [str(units[i]) for i in order]
+    if unit_labels is True or (unit_labels == "auto" and len(order) <= 60):
+        ax.set_xticks(range(len(order)), names, rotation=90)
+        ax.set_yticks(range(len(order)), names)
+    elif blocks:
+        starts = np.concatenate([[0], np.cumsum([size for _, size in blocks])[:-1]])
+        centres = [s + size / 2 - 0.5 for s, (_, size) in zip(starts, blocks, strict=True)]
+        ax.set_yticks(centres, [name for name, _ in blocks])
+        ax.set_xticks([])
+    else:
+        ax.set_xticks([])
+        ax.set_yticks([])
+    ax.set_facecolor(th.surface)
+    ax.figure.set_facecolor(th.surface)
+    if colorbar:
+        bar = ax.figure.colorbar(image, ax=ax, shrink=0.85)
+        bar.outline.set_visible(False)
+        bar.ax.tick_params(length=0, labelsize=th.font_size - 1, labelcolor=th.ink_secondary)
+        bar.set_label("1 − ADF p-value of the gap", color=th.ink_secondary, fontsize=th.font_size)
+    auto = f"Pairwise convergence (Pesaran, 2007): {len(result.pairs)} pairs"
+    _decorate(ax, th, auto if title == "auto" else title, None)
     return ax
 
 

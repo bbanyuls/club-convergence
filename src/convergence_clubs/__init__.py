@@ -26,6 +26,7 @@ from .logt import (
 )
 from .maps import match_regions, plot_map
 from .merging import merge_clubs, merge_divergent
+from .pairwise import ADFResult, PairwiseResult, adf_test, mackinnon_pvalue, pairwise_convergence
 from .panel import balance, describe_missing, fill_gaps, wide_panel
 from .plotting import (
     DARK,
@@ -41,6 +42,7 @@ from .plotting import (
     plot_determinants,
     plot_dynamics,
     plot_log_t,
+    plot_pairwise,
     plot_sigma,
     plot_stability,
     plot_transition_paths,
@@ -59,6 +61,7 @@ from .sigma import SigmaResult, sigma_convergence
 __version__ = "0.1.0"
 
 __all__ = [
+    "ADFResult",
     "CRITICAL_VALUE",
     "BetaResult",
     "DARK",
@@ -69,10 +72,12 @@ __all__ = [
     "DeterminantsResult",
     "DynamicsResult",
     "LogTResult",
+    "PairwiseResult",
     "Report",
     "SensitivityResult",
     "SigmaResult",
     "Theme",
+    "adf_test",
     "adjusted_rand_index",
     "balance",
     "beta_convergence",
@@ -92,8 +97,10 @@ __all__ = [
     "log_t_regression_data",
     "match_regions",
     "log_t_test",
+    "mackinnon_pvalue",
     "merge_clubs",
     "merge_divergent",
+    "pairwise_convergence",
     "plot_average_paths",
     "plot_beta",
     "plot_class_distributions",
@@ -104,6 +111,7 @@ __all__ = [
     "plot_densities",
     "plot_dynamics",
     "plot_log_t",
+    "plot_pairwise",
     "plot_map",
     "plot_sigma",
     "plot_stability",
