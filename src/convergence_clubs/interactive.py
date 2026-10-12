@@ -65,8 +65,17 @@ def _layout(fig: go.Figure, th: Theme, title: str | None, **kwargs) -> go.Figure
     return fig
 
 
+_PLOTLY_DASH = {"-": "solid", "solid": "solid", ":": "dot", "dotted": "dot"}
+_PLOTLY_DASH |= {"-.": "dashdot", "dashdot": "dashdot", "--": "dash", "dashed": "dash"}
+
+
 def _dash(style: dict[str, Any]) -> str:
-    return "solid" if style["linestyle"] == "-" else "dash"
+    """plotly ``dash`` for a matplotlib line style: named, or a dash pattern in points."""
+    linestyle = style["linestyle"]
+    if isinstance(linestyle, str):
+        return _PLOTLY_DASH.get(linestyle, "dash")
+    _, pattern = linestyle  # in units of the line width, which plotly does not scale by
+    return ",".join(f"{2 * length:g}px" for length in pattern)
 
 
 def _x(columns: pd.Index) -> list:
@@ -84,7 +93,7 @@ def transition_paths_figure(
     kind: Literal["both", "clubs", "average"] = "both",
     clubs: Sequence[str | int] | None = None,
     ncols: int = 3,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     colors: Colors = None,
     title: str | None = "Relative transition paths",
     height: int | None = None,
@@ -172,7 +181,7 @@ def transition_paths_figure(
 def co_membership_figure(
     sensitivity: SensitivityResult,
     *,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     title: str | None = "auto",
 ) -> go.Figure:
     """Co-membership heatmap; hovering a cell names both units and their share."""
@@ -212,7 +221,7 @@ def co_membership_figure(
 def beta_figure(
     result: BetaResult,
     *,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     colors: Colors = None,
     title: str | None = "auto",
 ) -> go.Figure:
@@ -277,7 +286,7 @@ def sigma_figure(
     result: SigmaResult,
     *,
     index: bool = False,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     colors: Colors = None,
     title: str | None = "auto",
 ) -> go.Figure:

@@ -22,6 +22,7 @@ from .filters import hp_filter
 from .logt import CRITICAL_VALUE
 from .pairwise import pairwise_convergence
 from .panel import balance, fill_gaps, wide_panel
+from .plotting import THEMES
 from .report import report
 from .sensitivity import sensitivity
 from .sigma import sigma_convergence
@@ -141,7 +142,12 @@ def build_parser() -> argparse.ArgumentParser:
     out.add_argument("--memberships", type=Path, metavar="CSV", help="write unit -> club")
     out.add_argument("--summary", type=Path, metavar="CSV", help="write the club summary")
     out.add_argument("--plot", type=Path, metavar="FILE", help="save transition paths figure")
-    out.add_argument("--theme", choices=["light", "dark"], default="light")
+    out.add_argument(
+        "--theme", choices=sorted(THEMES), default="light", help="theme of all figures"
+    )
+    out.add_argument(
+        "--dpi", type=int, metavar="N", help="resolution of saved figures (default: 150)"
+    )
     out.add_argument("--units", choices=["lines", "band", "none"], default="lines")
     out.add_argument(
         "--html", type=Path, metavar="FILE", help="save interactive transition paths (plotly)"
@@ -334,6 +340,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 bootstrap=args.bootstrap or 200,
                 seed=args.seed if args.seed is not None else 0,
                 title=f"Convergence analysis of {args.csv.name}",
+                theme=args.theme,
+                **({"dpi": args.dpi} if args.dpi else {}),
                 cstar=args.cstar,
                 core_rule=args.core_rule,
                 sort_fraction=args.sort_fraction,
@@ -356,12 +364,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             for w in caught:
                 print(f"convergence-clubs: warning: {w.message}", file=sys.stderr)
-            _figure(ax).savefig(args.map, dpi=150)
+            _figure(ax).savefig(args.map, dpi=args.dpi or 150)
         except (ImportError, OSError, KeyError, ValueError) as exc:
             print(f"convergence-clubs: error in map: {exc}", file=sys.stderr)
             return 1
     if args.plot:
-        result.plot(theme=args.theme, units=args.units, ncols=4).savefig(args.plot, dpi=150)
+        result.plot(theme=args.theme, units=args.units, ncols=4).savefig(
+            args.plot, dpi=args.dpi or 150
+        )
 
     if args.sensitivity or args.sensitivity_plot:
         try:
@@ -436,7 +446,7 @@ def _report_sensitivity(args: argparse.Namespace, data: pd.DataFrame, options: d
     print(least.to_string(float_format=lambda v: f"{v:.2f}"))
     if args.sensitivity_plot:
         ax = runs.plot(theme=args.theme)
-        _figure(ax).savefig(args.sensitivity_plot, dpi=150)
+        _figure(ax).savefig(args.sensitivity_plot, dpi=args.dpi or 150)
 
 
 def _report_beta(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
@@ -456,7 +466,7 @@ def _report_beta(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
         import matplotlib
 
         matplotlib.use("Agg")
-        _figure(conditional.plot(theme=args.theme)).savefig(args.beta_plot, dpi=150)
+        _figure(conditional.plot(theme=args.theme)).savefig(args.beta_plot, dpi=args.dpi or 150)
 
 
 def _report_sigma(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
@@ -468,7 +478,9 @@ def _report_sigma(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
         import matplotlib
 
         matplotlib.use("Agg")
-        _figure(sigma.plot(index=True, theme=args.theme)).savefig(args.sigma_plot, dpi=150)
+        _figure(sigma.plot(index=True, theme=args.theme)).savefig(
+            args.sigma_plot, dpi=args.dpi or 150
+        )
 
 
 def _report_dynamics(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
@@ -491,7 +503,7 @@ def _report_dynamics(args: argparse.Namespace, raw: pd.DataFrame, result) -> Non
         import matplotlib
 
         matplotlib.use("Agg")
-        dyn.plot(theme=args.theme).savefig(args.dynamics_plot, dpi=150)
+        dyn.plot(theme=args.theme).savefig(args.dynamics_plot, dpi=args.dpi or 150)
 
 
 def _report_bootstrap(args: argparse.Namespace, raw: pd.DataFrame, options: dict) -> None:

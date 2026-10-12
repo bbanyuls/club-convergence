@@ -46,7 +46,8 @@ The CSV file must have units in rows and periods in columns. For a long-format f
 - `--merge-divergent`, optionally with `--joint-divergent`;
 - `--fill-gaps 2` and `--drop-incomplete` for panels with missing values;
 - `--details`, which prints the members of every club;
-- `--summary out.csv --members`, which writes the summary table with the members of each club.
+- `--summary out.csv --members`, which writes the summary table with the members of each club;
+- `--theme light | dark | print` and `--dpi 300` for every saved figure and the report.
 
 `--sensitivity` reruns the clustering with `time_trim` set to 1/3, 0.25, 0.3 and 0.4, each with
 FQSB and AQSB. It prints the agreement table and the least stable units, and
