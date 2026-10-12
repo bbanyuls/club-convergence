@@ -20,6 +20,7 @@ from .determinants import club_determinants
 from .dynamics import distribution_dynamics
 from .filters import hp_filter
 from .logt import CRITICAL_VALUE
+from .pairwise import pairwise_convergence
 from .panel import balance, fill_gaps, wide_panel
 from .report import report
 from .sensitivity import sensitivity
@@ -209,6 +210,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="ordered logit of club membership on the covariates in CSV (first column: unit)",
     )
     classic.add_argument("--determinants-model", choices=["logit", "probit"], default="logit")
+    classic.add_argument(
+        "--pairwise",
+        action="store_true",
+        help="Pesaran (2007) pairwise test: ADF on every gap, within and between clubs",
+    )
     classic.add_argument("--dynamics-classes", type=int, default=5, metavar="K")
     classic.add_argument("--dynamics-lag", type=int, default=5, metavar="L")
     classic.add_argument(
@@ -386,6 +392,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(fit.summary().to_string(float_format=lambda v: f"{v:.4f}"))
         except (OSError, ValueError, TypeError, KeyError) as exc:
             print(f"convergence-clubs: error in determinants: {exc}", file=sys.stderr)
+            return 1
+    if args.pairwise:
+        try:
+            pw = pairwise_convergence(raw, log=not args.log, clubs=result)
+            print(f"\npairwise convergence (Pesaran, 2007): ADF on {len(pw.pairs)} gaps\n")
+            print(pw.summary().to_string(float_format=lambda v: f"{v:.3f}"))
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            print(f"convergence-clubs: error in pairwise test: {exc}", file=sys.stderr)
             return 1
     if args.dynamics or args.dynamics_plot:
         try:

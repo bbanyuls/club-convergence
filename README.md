@@ -25,6 +25,7 @@ It implements:
   - σ-convergence (the trend of dispersion over time, for the whole panel and within each club);
   - distribution dynamics (Markov transition matrices of relative income, the ergodic
     distribution, mobility indices and "twin peaks" densities);
+  - Pesaran's (2007) pairwise test (ADF tests on every income gap, within and between clubs);
 - **data preparation**: HP filtering, long-to-wide reshaping and handling of missing values;
 - **plots** you can customize, **interactive charts**, **maps** of club membership, a
   **command-line tool**, and a **one-call HTML report** that works as a replication appendix.
@@ -93,7 +94,7 @@ Two datasets ship with the package: the GDP panel of Phillips and Sul (2009) and
 | [Tutorial notebook](docs/tutorial.ipynb) | A complete analysis, step by step, with how to read each result |
 | [Finding clubs](docs/guide/clubs.md) | Bundled datasets, input data and missing values, sorting, clubs that fail their own test, R and Stata conventions |
 | [Robustness](docs/guide/robustness.md) | Sensitivity to the settings, bootstrap confidence in memberships |
-| [β, σ, dynamics and determinants](docs/guide/classical.md) | β- and σ-convergence, distribution dynamics and twin peaks, ordered logit of club membership |
+| [β, σ, dynamics, pairwise tests and determinants](docs/guide/classical.md) | β- and σ-convergence, distribution dynamics and twin peaks, Pesaran's pairwise test, ordered logit of club membership |
 | [Plots and maps](docs/guide/plots.md) | Every plot, themes and customization, interactive charts, maps |
 | [Report and command line](docs/guide/report-and-cli.md) | The one-call HTML report, every CLI option |
 | [Validation](docs/guide/validation.md) | API correspondence with R, tests against R and Stata, known differences |
