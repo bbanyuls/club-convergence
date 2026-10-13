@@ -21,6 +21,7 @@ All notable changes to this project are documented here. The format follows
   `merge_clubs(iterate=True)` and `divergent_method="last_club"` follow `imergeclub`. Validated on all 8 Stata classifications of Mendez (2020) ([#21](https://github.com/bbanyuls/club-convergence/pull/21)).
 - Warning (`ClubConvergenceWarning`) and `converges` flags for clubs that fail their own log t test ([#12](https://github.com/bbanyuls/club-convergence/pull/12)).
 - `merge_divergent(joint_first=True)`, step 1 of von Lyncker and Thoennissen (2017) ([#12](https://github.com/bbanyuls/club-convergence/pull/12)).
+- `ConvergenceClubs.rename()` gives the clubs meaningful names in every table, plot and report; also `report(club_names=...)` and `--club-names`.
 - `sort_fraction` (Stata's `fr()`), and `ref_col`/`data_cols` ([#1](https://github.com/bbanyuls/club-convergence/pull/1), [#21](https://github.com/bbanyuls/club-convergence/pull/21)).
 
 ### Robustness

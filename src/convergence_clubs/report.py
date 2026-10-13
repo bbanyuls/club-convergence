@@ -11,7 +11,7 @@ import datetime as _dt
 import html
 import io
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from .plotting import Theme
+    from .results import Club
 
 
 # -- document model -------------------------------------------------------------
@@ -219,6 +220,7 @@ def report(
     dynamics: bool = True,
     dynamics_lag: int = 5,
     covariates: pd.DataFrame | None = None,
+    club_names: Mapping[str, str] | Sequence[str] | Callable[[Club], str] | None = None,
     title: str = "Convergence analysis",
     theme: str | Theme | None = None,
     dark_mode: bool | str | Theme = True,
@@ -250,6 +252,8 @@ def report(
         logit of club membership (see :func:`club_determinants`).
     theme
         Theme of the figures (default: the one chosen with :func:`set_theme`).
+    club_names
+        Names of the final clubs (see :meth:`ConvergenceClubs.rename`).
     dark_mode
         Also embed dark-theme figures, shown when the reader's system uses a
         dark colour scheme; a theme (or its name) replaces the built-in dark one.
@@ -289,6 +293,10 @@ def report(
             **find_kwargs,
         )
     final = clubs.merge(merge) if merge else clubs
+    if club_names is not None:
+        final = final.rename(club_names)
+        if not merge:
+            clubs = final
     trim = clubs.time_trim
     periods = list(data.columns)
 

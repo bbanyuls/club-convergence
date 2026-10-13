@@ -43,6 +43,7 @@ The CSV file must have units in rows and periods in columns. For a long-format f
   `--cstar-method incremental`;
 - `--iterate-merge` and `--divergent-method last_club` for Stata's `imergeclub` options;
 - `--sort-fraction 0.1`;
+- `--club-names "High; Middle; Low"` to name the final clubs (separated by semicolons);
 - `--merge-divergent`, optionally with `--joint-divergent`;
 - `--fill-gaps 2` and `--drop-incomplete` for panels with missing values;
 - `--details`, which prints the members of every club;

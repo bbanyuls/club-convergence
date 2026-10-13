@@ -51,6 +51,18 @@ This makes the ordering less sensitive to a single year.
 For a paper table that lists the members of each club, use `clubs.summary(members=True)`.
 You can then export it with `.to_latex()` or `.to_csv()`.
 
+To give the clubs meaningful names in every table, plot, chart, map and report, rename them
+after merging (merging numbers the clubs again):
+
+```python
+named = merged.rename(["High", "Upper middle", "Middle", "Lower middle", "Low", "Bottom"])
+named = merged.rename({"club1": "Frontier"})                     # only some clubs
+named = merged.rename(lambda club: f"Club {club.name[4:]} (n = {len(club)})")
+```
+
+Names must be unique, and `"divergent"` is reserved. `cc.report(..., club_names=[...])` and
+`--club-names "High; Middle; Low"` in the command line do the same.
+
 ## Clubs that fail their own test
 
 With the default `cstar_method="fixed"` (as in R), the procedure can accept a club even
