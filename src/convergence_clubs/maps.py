@@ -52,7 +52,7 @@ def plot_map(
     threshold: float = 0.8,
     show_missing: bool = True,
     legend: bool = True,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     colors: Colors = None,
     title: str | None = "auto",
 ) -> Axes:

@@ -115,3 +115,21 @@ def test_determinants_section():
     )  # fmt: skip
     assert [s.title for s in rep.sections][-2] == "Determinants of club membership"
     assert "<td>log_h</td>" in rep.to_html()
+
+
+def test_figure_themes():
+    from convergence_clubs.report import Image
+
+    def images(rep):
+        return [b for s in rep.sections for b in s.blocks if isinstance(b, Image)]
+
+    small = cc.load_gdp().iloc[:40]
+    options = {"bootstrap": 0, "sensitivity": False, "beta": False, "sigma": False}
+    options |= {"dynamics": False, "dpi": 30}
+    light = images(cc.report(small, dark_mode=False, **options))
+    printed = images(cc.report(small, theme="print", dark_mode=cc.PRINT, **options))
+    assert all(img.dark is None for img in light)
+    assert [img.light for img in printed] == [img.dark for img in printed]
+    assert printed[0].light != light[0].light
+    with cc.theme_context("print"):
+        assert images(cc.report(small, dark_mode=False, **options))[0].light == printed[0].light

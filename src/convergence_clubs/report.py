@@ -20,9 +20,12 @@ import numpy as np
 import pandas as pd
 
 from .logt import cross_sectional_variation, log_t_test
+from .plotting import get_theme
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
+
+    from .plotting import Theme
 
 
 # -- document model -------------------------------------------------------------
@@ -178,14 +181,22 @@ def _png(fig: Figure, dpi: int) -> bytes:
     return buffer.getvalue()
 
 
-def _image(make: Callable[[str], Any], caption: str, alt: str, *, dark: bool, dpi: int) -> Image:
-    """Render ``make(theme)`` (a Figure or Axes) in the light and, optionally, dark theme."""
+def _image(
+    make: Callable[[Any], Any],
+    caption: str,
+    alt: str,
+    *,
+    theme: str | Theme | None,
+    dark: str | Theme | None,
+    dpi: int,
+) -> Image:
+    """Render ``make(theme)`` (a Figure or Axes) in ``theme`` and, optionally, a dark theme."""
 
-    def render(theme: str) -> bytes:
-        out = make(theme)
+    def render(th: str | Theme | None) -> bytes:
+        out = make(get_theme(th))
         return _png(out if hasattr(out, "savefig") else out.figure, dpi)
 
-    return Image(render("light"), render("dark") if dark else None, caption, alt)
+    return Image(render(theme), render(dark) if dark is not None else None, caption, alt)
 
 
 # -- the report -------------------------------------------------------------------
@@ -209,7 +220,8 @@ def report(
     dynamics_lag: int = 5,
     covariates: pd.DataFrame | None = None,
     title: str = "Convergence analysis",
-    dark_mode: bool = True,
+    theme: str | Theme | None = None,
+    dark_mode: bool | str | Theme = True,
     dpi: int = 110,
     **find_kwargs,
 ) -> Report:
@@ -236,9 +248,11 @@ def report(
     covariates
         Unit-level covariates (e.g. initial conditions); adds an ordered
         logit of club membership (see :func:`club_determinants`).
+    theme
+        Theme of the figures (default: the one chosen with :func:`set_theme`).
     dark_mode
         Also embed dark-theme figures, shown when the reader's system uses a
-        dark colour scheme.
+        dark colour scheme; a theme (or its name) replaces the built-in dark one.
     """
     import matplotlib
 
@@ -260,7 +274,8 @@ def report(
     logs = data.astype(float).transform(np.log) if log else data.astype(float)
     levels = data if log else data.astype(float).transform(np.exp)
     clustered = hp_filter(logs, lamb=filter_lambda) if filter_lambda is not None else logs
-    image: dict[str, Any] = {"dark": dark_mode, "dpi": dpi}
+    dark = "dark" if dark_mode is True else (dark_mode or None)
+    image: dict[str, Any] = {"theme": theme, "dark": dark, "dpi": dpi}
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always", ClubConvergenceWarning)

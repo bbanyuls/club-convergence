@@ -97,8 +97,20 @@ in a warning rather than silently dropped. From the command line, use
   Each club keeps its color in every panel, even if you plot only some of the clubs.
   The default palette has 8 colors that stay distinguishable for color-blind readers.
   From the 9th club on, the colors repeat with dashed lines, so no hard-to-distinguish new colors are added.
-- **Themes.** `theme="light"` / `"dark"`, or your own `cc.Theme`, e.g.
-  `cc.LIGHT.with_colors([...])`, or `dataclasses.replace(cc.DARK, font_size=11)`.
+- **Themes.** `theme="light"`, `"dark"` or `"print"`, or your own `cc.Theme`, e.g.
+  `cc.LIGHT.with_colors([...])` or `cc.DARK.replace(font_size=11)`.
+  - `"print"` is black and white for journals: three grays, each drawn solid, dashed, dotted and dash-dotted, so twelve clubs stay distinguishable without color.
+  - `Theme.linestyles` sets the line style of each round of colors (by default solid, then dashed).
+- **Default theme.** Set it once instead of passing `theme=` to every plot:
+
+  ```python
+  cc.set_theme("print")                       # every later plot, interactive chart, map and report
+  with cc.theme_context("dark"):              # only inside the block
+      merged.plot()
+  cc.register_theme("paper", cc.PRINT.replace(font_size=8))   # then theme="paper" anywhere
+  ```
+
+  An explicit `theme=` always wins. `cc.report(theme=..., dark_mode=...)` also accepts a theme for the main figures and for the dark variant (or `dark_mode=False`).
 - **Grid** (`plot()`):
   - `clubs=` picks which clubs to draw;
   - `kind="clubs" | "average" | "both"`;

@@ -36,6 +36,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Plots and output
 - Customizable matplotlib plots with light and dark themes and a palette checked for color-blind readers. They include transition paths, H(t), the log t regression, co-membership, stability, β, σ, dynamics and determinants ([#1](https://github.com/bbanyuls/club-convergence/pull/1) and later).
+- Default theme for all plots, charts, maps and reports (`set_theme`, `theme_context`), named custom themes (`register_theme`, usable by name), a black-and-white `"print"` theme, `Theme.linestyles`, and `--theme print` / `--dpi` in the command line.
 - Interactive plotly charts ([#17](https://github.com/bbanyuls/club-convergence/pull/17)) and maps of club membership ([#20](https://github.com/bbanyuls/club-convergence/pull/20)).
 - `report()`: a self-contained HTML replication appendix ([#23](https://github.com/bbanyuls/club-convergence/pull/23)).
 - Command-line tool `convergence-clubs`, covering every analysis.

@@ -53,7 +53,12 @@ def test_clubs_past_the_palette_are_dashed():
         warnings.simplefilter("ignore", cc.ClubConvergenceWarning)
         nine = cc.find_clubs(cc.load_filtered_gdp(), time_trim=0.3)
     fig = nine.plot.interactive(kind="average")
-    assert [t.line.dash for t in fig.data] == ["solid"] * 8 + ["dash"]
+    assert [t.line.dash for t in fig.data] == ["solid"] * 8 + ["8px,4px"]
+    fig = nine.plot.interactive(kind="average", theme="print")
+    assert [t.line.dash for t in fig.data][2:4] == ["solid", "10px,4px"]
+    named = cc.LIGHT.replace(colors=("#000000",), linestyles=("-", ":", "-.", "--", "loose"))
+    fig = nine.plot.interactive(kind="average", theme=named, clubs=[0, 1, 2, 3, 4])
+    assert [t.line.dash for t in fig.data] == ["solid", "dot", "dashdot", "dash", "dash"]
 
 
 def test_unit_names_are_escaped():

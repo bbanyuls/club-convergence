@@ -39,7 +39,9 @@ from .panel import balance, describe_missing, fill_gaps, wide_panel
 from .plotting import (
     DARK,
     LIGHT,
+    PRINT,
     Theme,
+    get_theme,
     plot_average_paths,
     plot_beta,
     plot_class_distributions,
@@ -55,6 +57,9 @@ from .plotting import (
     plot_stability,
     plot_transition_paths,
     plot_transitions,
+    register_theme,
+    set_theme,
+    theme_context,
 )
 from .report import Report, report
 from .results import Club, ConvergenceClubs
@@ -74,6 +79,7 @@ __all__ = [
     "BetaResult",
     "DARK",
     "LIGHT",
+    "PRINT",
     "Club",
     "ClubConvergenceWarning",
     "ConvergenceClubs",
@@ -98,6 +104,7 @@ __all__ = [
     "describe_missing",
     "distribution_dynamics",
     "fill_gaps",
+    "get_theme",
     "find_clubs",
     "hp_filter",
     "kpss_test",
@@ -128,9 +135,12 @@ __all__ = [
     "plot_transition_paths",
     "plot_transitions",
     "productivity_info",
+    "register_theme",
     "relative_transition",
     "report",
     "sensitivity",
+    "set_theme",
     "sigma_convergence",
+    "theme_context",
     "wide_panel",
 ]

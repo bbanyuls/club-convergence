@@ -212,3 +212,17 @@ def test_pairwise_option(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "ADF and KPSS on 435 gaps" in out and "within clubs" in out
     assert "share_both_agree" in out
+
+
+def test_theme_and_dpi_options(tmp_path):
+    from PIL import Image
+
+    csv, figure = tmp_path / "f.csv", tmp_path / "p.png"
+    cc.load_filtered_gdp().to_csv(csv)
+    assert main([str(csv), "--plot", str(figure), "--theme", "print", "--dpi", "50"]) == 0
+    with Image.open(figure) as image:
+        assert image.getpixel((0, 0))[:3] == (255, 255, 255)  # PRINT surface
+        small = image.size
+    assert main([str(csv), "--plot", str(figure)]) == 0
+    with Image.open(figure) as image:
+        assert image.size[0] == pytest.approx(small[0] * 3, abs=3)  # default 150 dpi

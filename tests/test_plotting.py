@@ -76,6 +76,43 @@ def test_themes(merged):
         merged.plot(theme="neon")
 
 
+def test_default_theme_and_registry(merged):
+    assert cc.get_theme() is cc.LIGHT
+    with cc.theme_context("dark") as th:
+        assert th is cc.DARK
+        assert to_hex(merged.plot().get_facecolor()) == cc.DARK.surface
+        # An explicit theme still wins over the default.
+        assert to_hex(merged.plot.average(theme="light").figure.get_facecolor()) == cc.LIGHT.surface
+    assert cc.get_theme() is cc.LIGHT
+
+    big = cc.LIGHT.replace(font_size=12)
+    cc.register_theme("big", big)
+    try:
+        cc.set_theme("big")
+        ax = merged.plot.average()
+        assert ax.yaxis.get_major_ticks()[0].label1.get_fontsize() == 12
+    finally:
+        cc.set_theme("light")
+        del cc.plotting.THEMES["big"]
+    with pytest.raises(ValueError, match="theme"):
+        cc.set_theme("neon")
+    with pytest.raises(TypeError):
+        cc.register_theme("x", {"surface": "#fff"})
+    with pytest.raises(ValueError, match="line styles"):
+        cc.LIGHT.replace(linestyles=())
+
+
+def test_print_theme_tells_clubs_apart_without_colour(filtered_gdp):
+    nine = cc.find_clubs(filtered_gdp, time_trim=0.3)
+    styles = club_styles(nine, theme="print")
+    pairs = {(s["color"], str(s["linestyle"])) for s in styles.values()}
+    assert len(pairs) == 9  # 3 greys x 3 line styles
+    assert {s["color"] for s in styles.values()} == set(cc.PRINT.colors)
+    fig = nine.plot(theme="print", kind="average")
+    lines = _data_lines(fig.axes[0])
+    assert lines[3].get_linestyle() == "--" and lines[0].get_linestyle() == "-"
+
+
 def test_emphasis(merged):
     ax = merged.plot.average(emphasis=["club1", "club6"])
     labels = [t.get_text() for t in ax.get_legend().get_texts()]

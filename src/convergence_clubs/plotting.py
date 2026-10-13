@@ -2,14 +2,17 @@
 
 Every single-panel function accepts ``ax=`` so it can draw into an existing
 figure, and returns the axes; :func:`plot_transition_paths` composes them into
-a grid and returns the figure. All of them take a ``theme`` (``"light"``,
-``"dark"`` or a :class:`Theme`) and ``colors`` to override club colours.
+a grid and returns the figure. All of them take a ``theme`` (the name of a
+registered theme -- ``"light"``, ``"dark"``, ``"print"`` -- or a :class:`Theme`;
+by default the one chosen with :func:`set_theme`) and ``colors`` to override
+club colours.
 """
 
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -48,8 +51,9 @@ class Theme:
 
     ``colors`` are the categorical club colours, assigned in order: a club
     keeps its colour in every panel and when other clubs are filtered out.
-    Clubs past ``len(colors)`` reuse the hues with a dashed line rather than
-    generating new colours that would be hard to tell apart.
+    Clubs past ``len(colors)`` reuse the hues with the next of ``linestyles``
+    (matplotlib line styles) rather than generating new colours that would be
+    hard to tell apart; once the styles run out the last one is kept.
     """
 
     surface: str
@@ -63,10 +67,19 @@ class Theme:
     font_size: float = 9.0
     #: One-hue ramp from "nothing" to "a lot", used for heatmaps.
     sequential: tuple[str, ...] = _BLUE_RAMP
+    linestyles: tuple[Any, ...] = ("-", (0, (4, 2)))
+
+    def __post_init__(self) -> None:
+        if not self.colors or not self.linestyles or len(self.sequential) < 2:
+            raise ValueError("a Theme needs colours, line styles and a sequential ramp")
 
     def with_colors(self, colors: Sequence[str]) -> Theme:
         """Copy of the theme with other club colours."""
         return replace(self, colors=tuple(colors))
+
+    def replace(self, **changes: Any) -> Theme:
+        """Copy of the theme with some fields changed, e.g. ``LIGHT.replace(font_size=11)``."""
+        return replace(self, **changes)
 
 
 # Categorical slots validated for colour-vision deficiency on adjacent pairs,
@@ -93,9 +106,58 @@ DARK = Theme(
     # and run the ramp towards light.
     sequential=("#22262d", *_BLUE_RAMP[::-1]),
 )
-THEMES: dict[str, Theme] = {"light": LIGHT, "dark": DARK}
+# Black and white for print: three greys, each drawn solid, dashed, dotted and
+# dash-dotted, so twelve clubs stay distinguishable without colour.
+PRINT = Theme(
+    surface="#ffffff",
+    ink="#000000",
+    ink_secondary="#333333",
+    ink_muted="#6b6b6b",
+    grid="#e6e6e6",
+    baseline="#9e9e9e",
+    colors=("#000000", "#555555", "#8c8c8c"),
+    unit_alpha=0.3,
+    sequential=("#f5f5f5", "#d9d9d9", "#bdbdbd", "#969696", "#737373", "#525252", "#252525"),
+    linestyles=("-", (0, (5, 2)), (0, (1, 1.5)), (0, (6, 2, 1, 2))),
+)
+THEMES: dict[str, Theme] = {"light": LIGHT, "dark": DARK, "print": PRINT}
+_default_theme: list[str | Theme] = ["light"]
 
-_DASHED = (0, (4, 2))
+
+def register_theme(name: str, theme: Theme) -> None:
+    """Make ``theme`` available by name, e.g. ``plot(theme=name)``."""
+    if not isinstance(theme, Theme):
+        raise TypeError("theme must be a Theme")
+    THEMES[name] = theme
+
+
+def get_theme(theme: str | Theme | None = None) -> Theme:
+    """The :class:`Theme` called ``theme``, or the default one (see :func:`set_theme`)."""
+    if theme is None:
+        theme = _default_theme[0]
+    if isinstance(theme, Theme):
+        return theme
+    try:
+        return THEMES[theme]
+    except KeyError:
+        raise ValueError(f"theme must be one of {sorted(THEMES)} or a Theme") from None
+
+
+def set_theme(theme: str | Theme) -> None:
+    """Use ``theme`` in every plot that is not given one explicitly."""
+    get_theme(theme)  # validate now rather than at the next plot
+    _default_theme[0] = theme
+
+
+@contextmanager
+def theme_context(theme: str | Theme) -> Iterator[Theme]:
+    """Use ``theme`` as the default inside a ``with`` block."""
+    previous = _default_theme[0]
+    set_theme(theme)
+    try:
+        yield get_theme()
+    finally:
+        _default_theme[0] = previous
 
 
 # -- helpers -------------------------------------------------------------------
@@ -111,17 +173,11 @@ def _plt():
     return plt
 
 
-def _theme(theme: str | Theme) -> Theme:
-    if isinstance(theme, Theme):
-        return theme
-    try:
-        return THEMES[theme]
-    except KeyError:
-        raise ValueError(f"theme must be one of {sorted(THEMES)} or a Theme") from None
+_theme = get_theme
 
 
 def club_styles(
-    result: ConvergenceClubs, theme: str | Theme = "light", colors: Colors = None
+    result: ConvergenceClubs, theme: str | Theme | None = None, colors: Colors = None
 ) -> dict[str, dict[str, Any]]:
     """Colour and line style of every club, keyed by club name.
 
@@ -129,16 +185,18 @@ def club_styles(
     to colour; clubs it does not cover get the theme colours.
     """
     th = _theme(theme)
-    n = len(th.colors)
+    n, last = len(th.colors), len(th.linestyles) - 1
+    solid = th.linestyles[0]
     styles: dict[str, dict[str, Any]] = {}
     for pos, club in enumerate(result.clubs):
         style: dict[str, Any]
         if isinstance(colors, Mapping) and club.name in colors:
-            style = {"color": colors[club.name], "linestyle": "-"}
+            style = {"color": colors[club.name], "linestyle": solid}
         elif isinstance(colors, Sequence) and not isinstance(colors, str) and pos < len(colors):
-            style = {"color": colors[pos], "linestyle": "-"}
+            style = {"color": colors[pos], "linestyle": solid}
         else:
-            style = {"color": th.colors[pos % n], "linestyle": "-" if pos < n else _DASHED}
+            linestyle = th.linestyles[min(pos // n, last)]
+            style = {"color": th.colors[pos % n], "linestyle": linestyle}
         styles[club.name] = style
     return styles
 
@@ -257,7 +315,7 @@ def plot_club(
     highlight: Sequence[Any] | None = None,
     show_average: bool = True,
     reference_line: bool = False,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     colors: Colors = None,
     title: str | None = "auto",
     ylabel: str | None = "Relative transition path",
@@ -329,7 +387,7 @@ def plot_average_paths(
     direct_labels: bool | Literal["auto"] = "auto",
     legend: bool = True,
     reference_line: bool = True,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     colors: Colors = None,
     title: str | None = "Average transition paths",
     ylabel: str | None = "Relative transition path",
@@ -404,7 +462,7 @@ def plot_cross_sectional_variation(
     log_scale: bool = True,
     show_window: bool = True,
     legend: bool = True,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     colors: Colors = None,
     title: str | None = "Cross-sectional variation within clubs",
 ) -> Axes:
@@ -456,7 +514,7 @@ def plot_log_t(
     club: ClubKey | None = None,
     *,
     ax: Axes | None = None,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     colors: Colors = None,
     title: str | None = "auto",
 ) -> Axes:
@@ -509,7 +567,7 @@ def plot_co_membership(
     ax: Axes | None = None,
     unit_labels: bool | Literal["auto"] = "auto",
     colorbar: bool = True,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     title: str | None = "auto",
 ) -> Axes:
     """Heatmap of how often each pair of units ends up in the same club.
@@ -570,7 +628,7 @@ def plot_stability(
     ax: Axes | None = None,
     threshold: float | None = 0.8,
     label: int = 8,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     colors: Colors = None,
     title: str | None = "auto",
 ) -> Axes:
@@ -657,7 +715,7 @@ def plot_beta(
     ax: Axes | None = None,
     label: Sequence[Any] | None = None,
     show_fit: bool = True,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     colors: Colors = None,
     title: str | None = "auto",
 ) -> Axes:
@@ -742,7 +800,7 @@ def plot_sigma(
     index: bool = False,
     direct_labels: bool | Literal["auto"] = "auto",
     legend: bool = True,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     colors: Colors = None,
     title: str | None = "auto",
 ) -> Axes:
@@ -816,7 +874,7 @@ def plot_transitions(
     *,
     ax: Axes | None = None,
     annotate: bool = True,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     title: str | None = "auto",
 ) -> Axes:
     """Heatmap of the transition matrix, with the probabilities written in the cells."""
@@ -856,7 +914,7 @@ def plot_class_distributions(
     result: DynamicsResult,
     *,
     ax: Axes | None = None,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     title: str | None = "Share of units in each class",
 ) -> Axes:
     """Initial, final and ergodic (long-run) shares of each class, as grouped bars."""
@@ -881,7 +939,7 @@ def plot_class_distributions(
     return ax
 
 
-def plot_dynamics(result: DynamicsResult, *, theme: str | Theme = "light") -> Figure:
+def plot_dynamics(result: DynamicsResult, *, theme: str | Theme | None = None) -> Figure:
     """Transition matrix (left) and initial / final / ergodic distributions (right)."""
     th = _theme(theme)
     fig, axes = _plt().subplots(
@@ -900,7 +958,7 @@ def plot_densities(
     periods: Sequence[Any] | None = None,
     rug: bool = True,
     bandwidth: float | None = None,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     colors: Colors = None,
     title: str | None = "auto",
 ) -> Axes:
@@ -964,7 +1022,7 @@ def plot_determinants(
     *,
     ax: Axes | None = None,
     level: float = 0.95,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     title: str | None = "auto",
 ) -> Axes:
     """Coefficients of the ordered model with ``level`` confidence intervals.
@@ -1002,7 +1060,7 @@ def plot_pairwise(
     ax: Axes | None = None,
     unit_labels: bool | Literal["auto"] = "auto",
     colorbar: bool = True,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     title: str | None = "auto",
 ) -> Axes:
     """Heatmap of pairwise ADF p-values (darker = stronger evidence of a stationary gap).
@@ -1080,7 +1138,7 @@ def plot_transition_paths(
     ncols: int = 3,
     panel_size: tuple[float, float] = (3.6, 2.6),
     sharey: bool = False,
-    theme: str | Theme = "light",
+    theme: str | Theme | None = None,
     colors: Colors = None,
     title: str | None = None,
     ylabel: str | None = "Relative transition path",
