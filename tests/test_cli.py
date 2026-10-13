@@ -226,3 +226,15 @@ def test_theme_and_dpi_options(tmp_path):
     assert main([str(csv), "--plot", str(figure)]) == 0
     with Image.open(figure) as image:
         assert image.size[0] == pytest.approx(small[0] * 3, abs=3)  # default 150 dpi
+
+
+def test_club_names_option(tmp_path, capsys):
+    csv, summary = tmp_path / "gdp.csv", tmp_path / "s.csv"
+    cc.load_gdp().to_csv(csv)
+    names = "High; Upper middle; Middle; Lower middle; Low; Bottom"
+    args = [str(csv), "--log", "--hp-filter", "--merge", "PS", "--summary", str(summary)]
+    assert main([*args, "--club-names", names]) == 0
+    assert pd.read_csv(summary)["club"].tolist() == [n.strip() for n in names.split(";")]
+    capsys.readouterr()
+    assert main([*args, "--club-names", "A; B"]) == 1
+    assert "got 2 names for 6 clubs" in capsys.readouterr().err

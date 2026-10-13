@@ -92,3 +92,10 @@ def test_standalone_html(merged, tmp_path):
     path = tmp_path / "clubs.html"
     merged.plot.interactive(kind="average").write_html(path)
     assert "plotly" in path.read_text()[:5000].lower()
+
+
+def test_club_names_are_escaped():
+    clubs = cc.find_clubs(cc.load_filtered_gdp()).rename({"club1": "Rich & <fast>"})
+    fig = clubs.plot.interactive(clubs=["Rich & <fast>"])
+    assert fig.data[-1].name == "Rich &amp; &lt;fast&gt;"
+    assert "Rich &amp; &lt;fast&gt;" in fig.layout.annotations[0].text

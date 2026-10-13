@@ -140,3 +140,35 @@ def test_joint_first_divergent_merge(clubs):
     assert pairwise.n_clubs == 6
     merged = result.merge("PS", merge_divergent=True, joint_first=True)
     assert merged.clubs[-1].merged_from == ("divergent",)
+
+
+def test_rename(clubs):
+    merged = clubs.merge("PS")
+    names = ["High", "Upper middle", "Middle", "Lower middle", "Low", "Bottom"]
+    renamed = merged.rename(names)
+    assert [c.name for c in renamed] == names
+    assert renamed.summary().index.tolist() == names
+    assert renamed.memberships()["United States"] == "High"
+    assert renamed["Low"].ids == merged["club5"].ids
+    assert renamed["High"].merged_from == merged["club1"].merged_from
+    assert [c.name for c in merged] == [f"club{i}" for i in range(1, 7)]  # a copy
+
+    partial = merged.rename({"club1": "Frontier"})
+    assert [c.name for c in partial][:2] == ["Frontier", "club2"]
+    numbered = merged.rename(lambda club: f"Club {club.name[4:]} (n = {len(club)})")
+    assert numbered[0].name == "Club 1 (n = 50)"
+    # The renamed result works everywhere names are used.
+    beta = cc.beta_convergence(cc.load_gdp(), clubs=renamed, club_effects=True)
+    assert "club[Low]" in beta.coefficients.index
+
+    for bad, error in [
+        (["a"] * 6, ValueError),
+        (["a", "b"], ValueError),
+        ([*names[:5], "divergent"], ValueError),
+        ([*names[:5], " "], ValueError),
+        ([*names[:5], "_hidden"], ValueError),
+        ({"club9": "x"}, KeyError),
+        ("High", TypeError),
+    ]:
+        with pytest.raises(error):
+            merged.rename(bad)

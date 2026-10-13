@@ -167,6 +167,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     out.add_argument("--details", action="store_true", help="print the members of every club")
     out.add_argument(
+        "--club-names",
+        metavar='"A; B; ..."',
+        help="names of the final clubs, in order, separated by semicolons",
+    )
+    out.add_argument(
         "--members", action="store_true", help="add the members of each club to --summary"
     )
 
@@ -297,6 +302,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = result.merge(args.merge, merge_divergent=args.merge_divergent, **merge_options)
         elif args.merge_divergent:
             result = result.merge_divergent(estar=args.estar, joint_first=args.joint_divergent)
+        if args.club_names:
+            result = result.rename([name.strip() for name in args.club_names.split(";")])
     except (OSError, ValueError, TypeError, KeyError) as exc:
         print(f"convergence-clubs: error: {exc}", file=sys.stderr)
         return 1
@@ -342,6 +349,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 title=f"Convergence analysis of {args.csv.name}",
                 theme=args.theme,
                 **({"dpi": args.dpi} if args.dpi else {}),
+                club_names=[name.strip() for name in args.club_names.split(";")]
+                if args.club_names
+                else None,
                 cstar=args.cstar,
                 core_rule=args.core_rule,
                 sort_fraction=args.sort_fraction,

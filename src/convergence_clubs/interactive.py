@@ -114,7 +114,7 @@ def transition_paths_figure(
     ncols = max(1, min(ncols, len(panels)))
     nrows = math.ceil(len(panels) / ncols)
     titles = [
-        f"{c.name} · {len(c)} units" if c is not None else "Average transition paths"
+        f"{html.escape(c.name)} · {len(c)} units" if c is not None else "Average transition paths"
         for c in panels
     ]
     fig = make_subplots(rows=nrows, cols=ncols, subplot_titles=titles, shared_xaxes=False)
@@ -140,7 +140,7 @@ def transition_paths_figure(
                             showlegend=False, opacity=th.unit_alpha,
                             line={"color": th.ink_muted, "width": 1},
                             hovertemplate=(
-                                f"<b>{html.escape(str(unit))}</b> ({c.name})<br>"
+                                f"<b>{html.escape(str(unit))}</b> ({html.escape(c.name)})<br>"
                                 "%{x}: h = %{y:.3f}<extra></extra>"
                             ),
                         ),
@@ -148,11 +148,11 @@ def transition_paths_figure(
                     )  # fmt: skip
             fig.add_trace(
                 go.Scatter(
-                    x=x, y=paths.mean(axis=0), mode="lines", name=c.name, legendgroup=c.name,
-                    showlegend=legend_once(c.name),
+                    x=x, y=paths.mean(axis=0), mode="lines", name=html.escape(c.name),
+                    legendgroup=c.name, showlegend=legend_once(c.name),
                     line={"color": style["color"], "width": 2.5, "dash": _dash(style)},
                     hovertemplate=(
-                        f"<b>{c.name}</b> average · {len(c)} units<br>"
+                        f"<b>{html.escape(c.name)}</b> average · {len(c)} units<br>"
                         f"β = {c.model.beta:.3f}, t = {c.model.t_value:.2f}<br>"
                         "%{x}: h = %{y:.3f}<extra></extra>"
                     ),
@@ -242,12 +242,13 @@ def beta_figure(
         part = units if group == "all units" else units[units["club"] == group]
         fig.add_trace(
             go.Scatter(
-                x=part["log_initial"], y=part["growth"], mode="markers", name=group,
-                legendgroup=group, text=[str(u) for u in part.index],
+                x=part["log_initial"], y=part["growth"], mode="markers", name=html.escape(group),
+                legendgroup=group, text=[html.escape(str(u)) for u in part.index],
                 marker={"color": palette[group], "size": 9,
                         "line": {"color": th.surface, "width": 1.5}},
                 hovertemplate=(
-                    f"<b>%{{text}}</b> ({group})<br>log level in {result.start}: %{{x:.2f}}<br>"
+                    f"<b>%{{text}}</b> ({html.escape(group)})<br>"
+                    f"log level in {result.start}: %{{x:.2f}}<br>"
                     "growth: %{y:.2%} per period<extra></extra>"
                 ),
             )
@@ -302,9 +303,9 @@ def sigma_figure(
         color = th.ink_muted if group == ALL else palette[group]
         fig.add_trace(
             go.Scatter(
-                x=_x(series.index), y=series[group], mode="lines", name=group,
+                x=_x(series.index), y=series[group], mode="lines", name=html.escape(str(group)),
                 line={"color": color, "width": 2.5},
-                hovertemplate=f"{group}: %{{y:.3f}}<extra></extra>",
+                hovertemplate=f"{html.escape(str(group))}: %{{y:.3f}}<extra></extra>",
             )
         )  # fmt: skip
     if index:

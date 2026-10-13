@@ -5,7 +5,7 @@ from __future__ import annotations
 import html
 import shutil
 import textwrap
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
@@ -158,6 +158,44 @@ class ConvergenceClubs:
         from .merging import merge_divergent
 
         return merge_divergent(self, **kwargs)
+
+    def rename(
+        self, names: Mapping[str, str] | Sequence[str] | Callable[[Club], str]
+    ) -> ConvergenceClubs:
+        """Copy with the clubs renamed, e.g. for plots and tables in a paper.
+
+        ``names`` is a mapping from current to new names (clubs it leaves out
+        keep theirs), a sequence of names in club order, or a function of the
+        :class:`Club`. Rename after merging: merging numbers the clubs again.
+
+        >>> clubs.rename(["High", "Upper middle", "Lower middle", "Low"])
+        >>> clubs.rename({"club1": "Frontier"})
+        >>> clubs.rename(lambda club: f"Club {club.name[4:]} ({len(club)})")
+        """
+        if isinstance(names, Mapping):
+            unknown = set(names) - {c.name for c in self.clubs}
+            if unknown:
+                raise KeyError(f"no club called {sorted(unknown)}")
+            new = [names.get(c.name, c.name) for c in self.clubs]
+        elif callable(names):
+            new = [names(c) for c in self.clubs]
+        elif isinstance(names, str):
+            raise TypeError("names must be a mapping, a sequence of names or a function")
+        else:
+            new = list(names)
+            if len(new) != self.n_clubs:
+                raise ValueError(f"got {len(new)} names for {self.n_clubs} clubs")
+        for name in new:
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError(f"club names must be non-empty strings, got {name!r}")
+        if any(name.startswith("_") for name in new):
+            raise ValueError("club names must not start with '_' (matplotlib hides them)")
+        if "divergent" in new:
+            raise ValueError('"divergent" is reserved for divergent units')
+        if len(set(new)) != len(new):
+            raise ValueError(f"club names must be unique, got {new}")
+        clubs = tuple(replace(c, name=n) for c, n in zip(self.clubs, new, strict=True))
+        return self._replace(clubs=clubs)
 
     def transition_paths(self) -> pd.DataFrame:
         """Relative transition paths ``h_it`` of every club member.

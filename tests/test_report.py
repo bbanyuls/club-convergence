@@ -133,3 +133,16 @@ def test_figure_themes():
     assert printed[0].light != light[0].light
     with cc.theme_context("print"):
         assert images(cc.report(small, dark_mode=False, **options))[0].light == printed[0].light
+
+
+def test_club_names():
+    small = cc.load_gdp().iloc[:40]
+    options = {"bootstrap": 0, "sensitivity": False, "sigma": False, "dynamics": False}
+    options |= {"dark_mode": False, "dpi": 30}
+    rep = cc.report(small, club_names=lambda c: c.name.upper(), **options)
+    text = rep.to_html()
+    assert "<td>CLUB1</td>" in text or ">CLUB1<" in text
+    clubs = cc.find_clubs(cc.hp_filter(np.log(small)))
+    names = [f"Group {i}" for i in range(1, clubs.n_clubs + 1)]
+    unmerged = cc.report(small, merge=None, club_names=names, **options).to_html()
+    assert "Group 1" in unmerged and ">club1<" not in unmerged
