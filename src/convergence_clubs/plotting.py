@@ -43,6 +43,37 @@ _BLUE_RAMP = (
     "#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5",
     "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b",
 )  # fmt: skip
+# "Nothing" must recede into the surface, so the light ramp starts with a tint
+# barely off the surface rather than at a visible blue.
+_LIGHT_SEQUENTIAL = ("#eef4fc", *_BLUE_RAMP)
+
+
+# -- OKLab interpolation, for ordinal ramps with even lightness steps --------------
+
+_M1 = np.array([
+    [0.4122214708, 0.5363325363, 0.0514459929],
+    [0.2119034982, 0.6806995451, 0.1073969566],
+    [0.0883024619, 0.2817188376, 0.6299787005],
+])  # fmt: skip
+_M2 = np.array([
+    [0.2104542553, 0.7936177850, -0.0040720468],
+    [1.9779984951, -2.4285922050, 0.4505937099],
+    [0.0259040371, 0.7827717662, -0.8086757660],
+])  # fmt: skip
+
+
+def _to_oklab(color: str) -> np.ndarray:
+    rgb = np.array([int(color[i : i + 2], 16) / 255 for i in (1, 3, 5)])
+    linear = np.where(rgb <= 0.04045, rgb / 12.92, ((rgb + 0.055) / 1.055) ** 2.4)
+    return _M2 @ np.cbrt(_M1 @ linear)
+
+
+def _from_oklab(lab: np.ndarray) -> str:
+    linear = np.linalg.solve(_M1, np.linalg.solve(_M2, lab) ** 3)
+    srgb = np.where(
+        linear <= 0.0031308, 12.92 * linear, 1.055 * np.clip(linear, 0, None) ** (1 / 2.4) - 0.055
+    )
+    return "#" + "".join(f"{round(v * 255):02x}" for v in np.clip(srgb, 0, 1))
 
 
 @dataclass(frozen=True)
@@ -66,12 +97,19 @@ class Theme:
     unit_alpha: float = 0.45
     font_size: float = 9.0
     #: One-hue ramp from "nothing" to "a lot", used for heatmaps.
-    sequential: tuple[str, ...] = _BLUE_RAMP
+    sequential: tuple[str, ...] = _LIGHT_SEQUENTIAL
     linestyles: tuple[Any, ...] = ("-", (0, (4, 2)))
+    #: Stops of a one-hue ramp from "low" to "high", for ordered classes
+    #: (clubs on a map, initial -> final -> ergodic); see :func:`ordinal_colors`.
+    ordinal: tuple[str, ...] = ("#86b6ef", "#2a78d6", "#0d366b")
 
     def __post_init__(self) -> None:
-        if not self.colors or not self.linestyles or len(self.sequential) < 2:
-            raise ValueError("a Theme needs colours, line styles and a sequential ramp")
+        if (
+            not self.colors
+            or not self.linestyles
+            or min(len(self.sequential), len(self.ordinal)) < 2
+        ):
+            raise ValueError("a Theme needs colours, line styles and two-stop ramps")
 
     def with_colors(self, colors: Sequence[str]) -> Theme:
         """Copy of the theme with other club colours."""
@@ -105,6 +143,8 @@ DARK = Theme(
     # On a dark surface "nothing" must recede into the surface: start near it
     # and run the ramp towards light.
     sequential=("#22262d", *_BLUE_RAMP[::-1]),
+    # Low end no darker than 2:1 against the surface, running towards light.
+    ordinal=("#184f95", "#3987e5", "#cde2fb"),
 )
 # Black and white for print: three greys, each drawn solid, dashed, dotted and
 # dash-dotted, so twelve clubs stay distinguishable without colour.
@@ -119,6 +159,7 @@ PRINT = Theme(
     unit_alpha=0.3,
     sequential=("#f5f5f5", "#d9d9d9", "#bdbdbd", "#969696", "#737373", "#525252", "#252525"),
     linestyles=("-", (0, (5, 2)), (0, (1, 1.5)), (0, (6, 2, 1, 2))),
+    ordinal=("#c4c4c4", "#6b6b6b", "#000000"),
 )
 THEMES: dict[str, Theme] = {"light": LIGHT, "dark": DARK, "print": PRINT}
 _default_theme: list[str | Theme] = ["light"]
@@ -174,6 +215,26 @@ def _plt():
 
 
 _theme = get_theme
+
+#: Most ordered classes an ordinal ramp keeps apart (adjacent lightness gaps
+#: stay >= 0.06 in OKLab up to seven steps, in both built-in modes).
+MAX_ORDINAL = 7
+
+
+def ordinal_colors(n: int, theme: str | Theme | None = None) -> list[str]:
+    """``n`` colours from the theme's ordinal ramp, low to high, evenly spaced in lightness.
+
+    The ramp is interpolated in OKLab, so the steps look evenly spaced; up to
+    :data:`MAX_ORDINAL` classes stay distinguishable.
+    """
+    th = _theme(theme)
+    labs = np.array([_to_oklab(c) for c in th.ordinal])
+    stops = np.linspace(0, 1, len(labs))
+    positions = np.linspace(0, 1, n) if n > 1 else np.array([1.0])
+    return [
+        _from_oklab(np.array([np.interp(t, stops, labs[:, k]) for k in range(3)]))
+        for t in positions
+    ]
 
 
 def club_styles(
@@ -482,7 +543,12 @@ def plot_cross_sectional_variation(
         ax.plot(x, H, color=th.ink_muted, linewidth=1.5, label="all units", zorder=2)
     for c in _select(result, clubs):
         H = cross_sectional_variation(result.values[list(c.ids)])
-        ax.plot(x, H, label=c.name, linewidth=2, solid_capstyle="round", zorder=3, **styles[c.name])
+        kwargs: dict[str, Any]
+        if len(c) < 3:  # H of one or two units swings wildly; keep it from dominating
+            kwargs = {"label": f"{c.name} ({len(c)} units)", "linewidth": 1.2, "alpha": 0.6}
+        else:
+            kwargs = {"label": c.name, "linewidth": 2}
+        ax.plot(x, H, solid_capstyle="round", zorder=3, **kwargs, **styles[c.name])
     if log_scale:
         ax.set_yscale("log")
     if show_window:
@@ -514,6 +580,7 @@ def plot_log_t(
     club: ClubKey | None = None,
     *,
     ax: Axes | None = None,
+    show_discarded: bool = False,
     theme: str | Theme | None = None,
     colors: Colors = None,
     title: str | None = "auto",
@@ -522,7 +589,8 @@ def plot_log_t(
 
     Shows ``log(H_1/H_t) - 2 log(log t)`` against ``log t`` over the
     regression window, the fitted line and the test outcome: the null of
-    convergence is rejected when ``t < -1.65``.
+    convergence is rejected when ``t < -1.65``. ``show_discarded`` also draws
+    the first ``time_trim`` share of periods, which the regression leaves out.
     """
     th = _theme(theme)
     ax = _new_axes(ax, th)
@@ -534,23 +602,37 @@ def plot_log_t(
         color = club_styles(result, th, colors)[c.name]["color"]
 
     H = cross_sectional_variation(result.values[ids])
-    log_t, y = log_t_regression_data(H, result.time_trim)
-    model = log_t_test(H, result.time_trim, result.hac_method)
+    rounding = result.params.get("rounding", "half_even")
+    log_t, y = log_t_regression_data(H, result.time_trim, rounding)
+    model = log_t_test(H, result.time_trim, result.hac_method, rounding)
 
-    ax.scatter(log_t, y, s=30, color=color, edgecolors=th.surface, linewidths=1.2, zorder=3)
+    if show_discarded:
+        # Periods 2..[rT], left out of the regression (t = 1 has log log t = -inf).
+        early_t, early_y = log_t_regression_data(H[: len(H) - len(log_t)], 0.0)
+        keep = early_t > 0
+        ax.scatter(
+            early_t[keep], early_y[keep], s=30, facecolors="none", edgecolors=th.ink_muted,
+            linewidths=1, zorder=3, label=f"discarded (first {result.time_trim:.0%} of periods)",
+        )  # fmt: skip
+    ax.scatter(
+        log_t, y, s=30, color=color, edgecolors=th.surface, linewidths=1.2, zorder=3,
+        label="regression window",
+    )  # fmt: skip
     grid = np.linspace(log_t.min(), log_t.max(), 50)
     ax.plot(grid, model.alpha + model.beta * grid, color=th.ink, linewidth=1.5, zorder=2)
     verdict = "convergence not rejected" if model.converges() else "convergence rejected"
     ax.text(
         0.02,
-        0.96,
+        0.04 if show_discarded else 0.96,  # the discarded points fill the top left
         f"β = {model.beta:.3f} (s.e. {model.std_err:.3f})\nt = {model.t_value:.2f}: {verdict}",
         transform=ax.transAxes,
-        va="top",
+        va="bottom" if show_discarded else "top",
         fontsize=th.font_size - 0.5,
         color=th.ink_secondary,
     )
     _style_axes(ax, th)
+    if show_discarded:
+        _legend(ax, th, loc="upper right")
     _decorate(
         ax,
         th,
@@ -860,10 +942,6 @@ def _luminance(color: str) -> float:
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
-def _is_dark(th: Theme) -> bool:
-    return _luminance(th.surface) < 0.5
-
-
 def _text_on(color: str, th: Theme) -> str:
     """Ink or white, whichever reads better on a cell of ``color``."""
     return "#ffffff" if _luminance(color) < 0.4 else "#0b0b0b"
@@ -890,9 +968,10 @@ def plot_transitions(
         ax.axhline(edge, color=th.surface, linewidth=2)
         ax.axvline(edge, color=th.surface, linewidth=2)
     if annotate:
+        # Only the non-empty cells: a field of "0.00" is noise that hides the diagonal.
         for i in range(k):
             for j in range(k):
-                if np.isfinite(P[i, j]):
+                if np.isfinite(P[i, j]) and P[i, j] >= 0.005:
                     ax.text(j, i, f"{P[i, j]:.2f}", ha="center", va="center",
                             fontsize=th.font_size, color=_text_on(cmap(P[i, j]), th))  # fmt: skip
     for spine in (ax.spines[side] for side in ("top", "right", "bottom", "left")):
@@ -925,10 +1004,12 @@ def plot_class_distributions(
     shares = result.distributions()
     k, n = shares.shape
     width = 0.8 / n
-    for i, column in enumerate(shares.columns):
+    # Initial -> final -> ergodic is an order in time, not a set of clubs: one
+    # hue from light to dark, so the bars do not borrow the club colours.
+    for i, (column, color) in enumerate(zip(shares.columns, ordinal_colors(n, th), strict=True)):
         ax.bar(
             np.arange(k) + (i - (n - 1) / 2) * width, shares[column], width=width * 0.92,
-            color=th.colors[i], label=column, zorder=3,
+            color=color, label=column, zorder=3,
         )  # fmt: skip
     _style_axes(ax, th)
     ax.set_xticks(range(k), shares.index, rotation=30, ha="right")
@@ -977,11 +1058,8 @@ def plot_densities(
     if len(periods) == 2:
         line_colors = [th.ink_muted, th.colors[0]]
     else:
-        # Ordinal ramp: later periods stand out more from the surface. The first
-        # steps of the sequential ramp sit too close to the surface for lines.
-        ramp = th.sequential[2:] if _is_dark(th) else th.sequential[3:]
-        picks = np.linspace(0, len(ramp) - 1, len(periods)).round().astype(int)
-        line_colors = [ramp[i] for i in picks]
+        # Periods are ordered: later ones stand out more from the surface.
+        line_colors = ordinal_colors(len(periods), th)
 
     ax.axvline(1.0, color=th.baseline, linewidth=1, zorder=1)
     for period, color in zip(periods, line_colors, strict=True):
@@ -1054,25 +1132,73 @@ def plot_determinants(
     return ax
 
 
+def _plot_pairwise_clubs(result: PairwiseResult, ax: Axes | None, th: Theme, title) -> Axes:
+    from matplotlib.colors import LinearSegmentedColormap
+
+    shares = result.club_matrix()
+    k = len(shares)
+    values = shares.to_numpy(dtype=float, copy=True)
+    values[np.triu_indices(k, 1)] = np.nan  # symmetric: the lower triangle says it all
+    ax = _new_axes(ax, th, figsize=(1.6 + 0.75 * k, 1.2 + 0.7 * k))
+    # A fixed 0-100% scale: 100% would be full convergence, so weak evidence
+    # must look weak rather than be stretched to the darkest colour.
+    top = 1.0
+    cmap = LinearSegmentedColormap.from_list("share", th.sequential).with_extremes(bad=th.surface)
+    ax.imshow(values, cmap=cmap, vmin=0, vmax=top, interpolation="nearest")
+    for edge in np.arange(k - 1) + 0.5:  # surface gaps between cells
+        ax.axhline(edge, color=th.surface, linewidth=2)
+        ax.axvline(edge, color=th.surface, linewidth=2)
+    for i in range(k):
+        for j in range(i + 1):
+            if np.isfinite(values[i, j]):
+                ax.text(j, i, f"{values[i, j]:.0%}", ha="center", va="center",
+                        fontsize=th.font_size, color=_text_on(cmap(values[i, j] / top), th),
+                        fontweight="bold" if i == j else "normal")  # fmt: skip
+    for side in ("top", "right", "bottom", "left"):
+        ax.spines[side].set_visible(False)
+    ax.set_facecolor(th.surface)
+    ax.figure.set_facecolor(th.surface)
+    ax.tick_params(length=0, labelsize=th.font_size - 1, labelcolor=th.ink_secondary)
+    ax.set_xticks(range(k), shares.columns, rotation=30, ha="right")
+    ax.set_yticks(range(k), shares.index)
+    auto = "Pairs with a stationary gap (Pesaran, 2007)"
+    _decorate(
+        ax, th, auto if title == "auto" else title, None,
+        xlabel=f"ADF at {result.alpha:g}: about {result.alpha:.0%} expected without convergence",
+    )  # fmt: skip
+    return ax
+
+
 def plot_pairwise(
     result: PairwiseResult,
     *,
+    kind: Literal["auto", "clubs", "units"] = "auto",
     ax: Axes | None = None,
     unit_labels: bool | Literal["auto"] = "auto",
     colorbar: bool = True,
     theme: str | Theme | None = None,
     title: str | None = "auto",
 ) -> Axes:
-    """Heatmap of pairwise ADF p-values (darker = stronger evidence of a stationary gap).
+    """Pairwise convergence tests, by club or unit by unit.
 
-    With clubs, units are ordered by club and the clubs are outlined, so
-    convergence within clubs shows as darker blocks on the diagonal.
+    ``kind="clubs"`` (the default when the result has clubs) shows the share
+    of pairs whose gap is stationary within each club (diagonal, in bold) and
+    between every two clubs. ``kind="units"`` is the heatmap of the ADF
+    p-values of every pair (darker = stronger evidence of a stationary gap),
+    with units ordered by club, so convergence within clubs shows as darker
+    blocks on the diagonal; with many units it is mostly useful interactively.
     """
     from matplotlib.colors import LinearSegmentedColormap
 
     from .beta import _club_labels, _club_order
 
+    if kind not in ("auto", "clubs", "units"):
+        raise ValueError("kind must be 'auto', 'clubs' or 'units'")
     th = _theme(theme)
+    if kind == "auto":
+        kind = "clubs" if result.clubs is not None else "units"
+    if kind == "clubs":
+        return _plot_pairwise_clubs(result, ax, th, title)
     ax = _new_axes(ax, th, figsize=(6.4, 5.6))
     units = result.units
     blocks: list[tuple[str, int]] = []

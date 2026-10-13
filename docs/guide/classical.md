@@ -104,7 +104,8 @@ pw = cc.pairwise_convergence(gdp, clubs=merged)   # levels; log=False if already
 pw.summary()     # share rejected: all pairs, within clubs, between clubs, vs alpha
 pw.by_club()     # share rejected inside each club
 pw.matrix()      # p-values as a units x units table
-pw.plot()        # heatmap ordered by club
+pw.club_matrix() # share rejected within and between every two clubs
+pw.plot()        # that table as a chart; plot(kind="units") for every pair
 
 cc.adf_test(series, regression="c", autolag="AIC")   # the ADF test on its own
 cc.kpss_test(series, regression="c", nlags="auto")    # the KPSS test on its own
@@ -128,7 +129,10 @@ It matches statsmodels on 1,800 series.
 
 In the tests, the statistic, the chosen lag and the p-value match statsmodels on 360 series.
 
-![Pairwise ADF evidence, ordered by club](../pairwise.png)
+On the GDP data the shares are low everywhere (0–20%) and only a little higher within clubs than
+between them: the chart uses a fixed 0–100% scale, so weak evidence looks weak.
+
+![Share of pairs with a stationary gap, within (diagonal) and between clubs](../pairwise.png)
 
 On the GDP data the unit root is rejected for **12.8%** of all 11,476 pairs (against 5% expected
 without convergence). It is rejected for **15.9%** of pairs within clubs and **11.8%** between clubs.
