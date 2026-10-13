@@ -115,8 +115,22 @@ def test_gdp_panel(filtered_gdp):
         > summary.loc["all pairs", "expected_under_null"]
     )
     assert "pairs" in repr(result)
-    ax = result.plot(theme="dark")
+
+    shares = result.club_matrix()
+    assert list(shares.index) == list(shares.columns) == [c.name for c in merged]
+    assert np.allclose(shares.to_numpy(), shares.to_numpy().T, equal_nan=True)
+    by_club = result.by_club()["share_rejected"]
+    assert np.allclose(np.diag(shares.to_numpy()), by_club.reindex(shares.index).to_numpy())
+
+    ax = result.plot(theme="dark")  # club x club shares by default
     assert [t.get_text() for t in ax.get_yticklabels()][0] == "club1"
+    k = merged.n_clubs
+    assert len(ax.texts) == k * (k + 1) // 2  # lower triangle only
+    assert ax.texts[0].get_text() == f"{shares.iloc[0, 0]:.0%}"
+    ax = result.plot(kind="units")
+    assert ax.images[0].get_array().shape == (152, 152)
+    with pytest.raises(ValueError, match="kind"):
+        result.plot(kind="pie")
     plt.close("all")
 
 
@@ -128,6 +142,8 @@ def test_errors():
         cc.pairwise_convergence(-data)
     with pytest.raises(ValueError, match="clubs="):
         cc.pairwise_convergence(data).by_club()
+    with pytest.raises(ValueError, match="clubs="):
+        cc.pairwise_convergence(data).club_matrix()
     gappy = data.copy()
     gappy.iloc[0, 3] = np.nan
     with pytest.raises(ValueError, match="missing"):

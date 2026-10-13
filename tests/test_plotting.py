@@ -149,7 +149,11 @@ def test_draws_into_existing_axes(merged):
 def test_variation_plot(merged):
     ax = merged.plot.variation()
     assert ax.get_yscale() == "log"
-    assert len(_data_lines(ax)) == merged.n_clubs + 1
+    lines = _data_lines(ax)
+    assert len(lines) == merged.n_clubs + 1
+    small = lines[-1]  # club6 has two units: thinner, lighter, labelled with its size
+    assert small.get_label() == "club6 (2 units)" and small.get_alpha() == 0.6
+    assert lines[1].get_alpha() is None
 
 
 def test_log_t_plot(merged):
@@ -160,6 +164,45 @@ def test_log_t_plot(merged):
     assert (y[-1] - y[0]) / (x[-1] - x[0]) == pytest.approx(model.beta)
     assert f"{model.t_value:.2f}" in ax.texts[0].get_text()
     assert "all units" in merged.plot.log_t().get_title(loc="left")
+
+    ax = merged.plot.log_t("club1", show_discarded=True)
+    discarded, window = ax.collections
+    n = len(merged.data.columns)
+    assert len(window.get_offsets()) == n - round(n / 3)
+    assert len(discarded.get_offsets()) == round(n / 3) - 1  # t = 1 has no log log t
+    assert "discarded" in ax.get_legend().get_texts()[0].get_text()
+
+
+def test_log_t_plot_uses_the_convention_rounding(filtered_gdp):
+    # T = 15 and time_trim = 0.3: [rT] = 4.5 is 4 in R (half even) but 5 in Stata.
+    stata = cc.find_clubs(filtered_gdp.iloc[:, :15], convention="Stata", time_trim=0.3)
+    model = stata[0].model
+    assert f"t = {model.t_value:.2f}" in stata.plot.log_t(0).texts[0].get_text()
+
+
+def test_ordinal_colors():
+    for theme in ("light", "dark", "print"):
+        for n in range(1, cc.plotting.MAX_ORDINAL + 1):
+            colors = cc.ordinal_colors(n, theme)
+            assert len(colors) == n == len(set(colors))
+    assert cc.ordinal_colors(2) == [cc.LIGHT.ordinal[0], cc.LIGHT.ordinal[-1]]
+    assert cc.ordinal_colors(1) == [cc.LIGHT.ordinal[-1]]
+    # Lightness falls steadily on light surfaces, rises on dark ones.
+    from convergence_clubs.plotting import _luminance
+
+    light = [_luminance(c) for c in cc.ordinal_colors(7)]
+    dark = [_luminance(c) for c in cc.ordinal_colors(7, "dark")]
+    assert all(np.diff(light) < 0) and all(np.diff(dark) > 0)
+    with pytest.raises(ValueError, match="ramps"):
+        cc.LIGHT.replace(ordinal=("#000000",))
+
+
+def test_sequential_zero_recedes_into_the_surface():
+    from convergence_clubs.plotting import _luminance
+
+    for theme in (cc.LIGHT, cc.DARK):
+        gap = abs(_luminance(theme.sequential[0]) - _luminance(theme.surface))
+        assert gap < 0.1
 
 
 @pytest.mark.parametrize(

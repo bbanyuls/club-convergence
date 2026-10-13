@@ -257,6 +257,27 @@ class PairwiseResult:
         order = [c for c in _club_order(self.clubs) if c in table.index]
         return table.loc[order].rename_axis("club")
 
+    def club_matrix(self, column: str = "reject") -> pd.DataFrame:
+        """Mean of ``column`` over the pairs of every two clubs (clubs x clubs, symmetric).
+
+        With the default ``"reject"`` the diagonal is the share of pairs
+        within each club whose gap is stationary, and the other cells the
+        share between two clubs; ``"divergent"`` is a group of its own.
+        """
+        if "club_i" not in self.pairs:
+            raise ValueError("pass clubs= to pairwise_convergence() to split the pairs by club")
+        from .beta import _club_order
+
+        values = self.pairs[column].astype(float)
+        a, b = self.pairs["club_i"].astype(str), self.pairs["club_j"].astype(str)
+        both = pd.DataFrame(
+            {"a": pd.concat([a, b]), "b": pd.concat([b, a]), "v": pd.concat([values, values])}
+        )
+        # Pairs within a club appear twice above; the mean is unchanged.
+        table = both.pivot_table(index="a", columns="b", values="v", aggfunc="mean")
+        order = [c for c in _club_order(self.clubs) if c in table.index]
+        return table.loc[order, order].rename_axis(index="club", columns="club")
+
     def matrix(self, column: str = "p_value") -> pd.DataFrame:
         """``column`` of every pair as a symmetric units x units table."""
         # Fill a NumPy array, then wrap it: with copy-on-write, writing through
@@ -270,7 +291,7 @@ class PairwiseResult:
         return pd.DataFrame(table, index=self.units, columns=self.units)
 
     def plot(self, **kwargs) -> Axes:
-        """Heatmap of pairwise p-values; see :func:`convergence_clubs.plot_pairwise`."""
+        """Club x club shares, or unit heatmap; see :func:`convergence_clubs.plot_pairwise`."""
         from .plotting import plot_pairwise
 
         return plot_pairwise(self, **kwargs)

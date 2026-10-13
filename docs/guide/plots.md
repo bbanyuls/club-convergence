@@ -70,7 +70,14 @@ From the command line, `--html clubs.html` writes the interactive transition pat
 
 With the `maps` extra (geopandas), `result.plot.map(geodata)` colors each region by its
 club. Divergent units are shown in gray, and regions without data in a light neutral fill.
-Pass a bootstrap result as `confidence=` to draw uncertain members lighter.
+Pass a bootstrap result as `confidence=` to hatch uncertain members; their color does not change.
+
+Clubs are ordered (club 1 has the highest level), so by default the map shades them with one hue,
+dark for club 1 and lighter for lower clubs. On a map every club can border every other one, and
+the club colors of the other plots only stay distinct for adjacent clubs: with more than three,
+two neighboring countries can end up in colors that are hard to tell apart (orange and yellow,
+for example). `palette="clubs"` uses the club colors anyway; it is also used when `colors=` is
+given or when there are more than seven clubs, the most an ordered ramp keeps apart.
 
 ```python
 import geopandas as gpd
@@ -79,7 +86,7 @@ world = gpd.read_file(".../ne_50m_admin_0_countries.zip")      # Natural Earth b
 merged.plot.map(
     world, key="ISO_A3_EH", names=cc.country_codes(),        # match countries by ISO3 code
     crs="EPSG:8857",                                          # Equal Earth projection
-    confidence=cc.bootstrap(data, 200, merge="PS", seed=0),   # lighter = less certain
+    confidence=cc.bootstrap(data, 200, merge="PS", seed=0),   # hatched = less certain
 )
 ```
 
@@ -89,7 +96,7 @@ they differ; `cc.country_codes()` gives verified ISO3 codes for the bundled GDP 
 in a warning rather than silently dropped. From the command line, use
 `--map clubs.png --geodata regions.gpkg --geo-key NAME`.
 
-![World map of the merged clubs; lighter countries have bootstrap stability below 0.8](../map.png)
+![World map of the merged clubs, darker for higher clubs; hatched countries have bootstrap stability below 0.8](../map.png)
 
 ### Customizing plots
 
@@ -99,6 +106,11 @@ in a warning rather than silently dropped. From the command line, use
   From the 9th club on, the colors repeat with dashed lines, so no hard-to-distinguish new colors are added.
 - **Themes.** `theme="light"`, `"dark"` or `"print"`, or your own `cc.Theme`, e.g.
   `cc.LIGHT.with_colors([...])` or `cc.DARK.replace(font_size=11)`.
+  - Each theme has three kinds of color, each for one job: `colors` for identity (one per club),
+    `sequential` for magnitude (heatmaps; its first step almost matches the surface, so zero
+    recedes), and `ordinal` for ordered classes (clubs on a map, periods, initial → final →
+    ergodic). `cc.ordinal_colors(n)` gives n steps of the ordinal ramp, interpolated in OKLab so
+    they look evenly spaced; up to seven pass the lightness-gap check in the light and dark themes.
   - `"print"` is black and white for journals: three grays, each drawn solid, dashed, dotted and dash-dotted, so twelve clubs stay distinguishable without color.
   - `Theme.linestyles` sets the line style of each round of colors (by default solid, then dashed).
 - **Default theme.** Set it once instead of passing `theme=` to every plot:

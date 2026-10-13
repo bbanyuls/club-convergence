@@ -111,7 +111,9 @@ def test_plots(gdp, merged):
     d = cc.distribution_dynamics(gdp, lag=5, clubs=merged)
     fig = d.plot()
     heat, bars = fig.axes[:2]
-    assert len(heat.texts) == 25 and heat.texts[0].get_text() == f"{d.matrix.iloc[0, 0]:.2f}"
+    nonzero = int((d.matrix.to_numpy() >= 0.005).sum())
+    assert 0 < len(heat.texts) == nonzero < 25  # empty cells stay blank
+    assert heat.texts[0].get_text() == f"{d.matrix.iloc[0, 0]:.2f}"
     assert {t.get_color() for t in heat.texts} <= {"#ffffff", "#0b0b0b"}
     assert [t.get_text() for t in bars.get_legend().get_texts()] == ["initial", "final", "ergodic"]
     ax = d.plot_densities()

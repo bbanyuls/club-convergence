@@ -33,6 +33,8 @@ def _fills(ax):
     out = []
     for collection in ax.collections:  # one collection per layer, one path per polygon
         colors = collection.get_facecolors()
+        if not len(colors):  # an overlay without fill (the hatching)
+            continue
         for i in range(len(collection.get_paths())):
             color = colors[i % len(colors)]
             out.append((to_hex(color[:3]), round(float(color[3]), 2)))
@@ -59,27 +61,52 @@ def test_map_colours_regions_by_club(merged, squares):
     with pytest.warns(UserWarning, match="Netherlands Antilles"):
         ax = merged.plot.map(squares, key="iso", names=cc.country_codes())
     fills = _fills(ax)
-    styles = club_styles(merged)
+    # Ordinal by default: club 1, the highest level, gets the dark end of the ramp.
+    shades = dict(
+        zip([c.name for c in merged], cc.ordinal_colors(merged.n_clubs)[::-1], strict=True)
+    )
     assert len(fills) == 152  # 151 matched countries + 1 region without data
     for club in merged:
         expected = sum(c != "ANT" for c in cc.country_codes()[list(merged.units(club.name))])
-        assert sum(f == (styles[club.name]["color"], 1.0) for f in fills) == expected
+        assert sum(f == (shades[club.name], 1.0) for f in fills) == expected
     assert sum(f[0] == cc.LIGHT.grid for f in fills) == 1  # "XXX": no data
     labels = [t.get_text() for t in ax.get_legend().get_texts()]
     assert labels == [f"{c.name} ({len(c)})" for c in merged] + ["no data"]
+
+    with pytest.warns(UserWarning):
+        ax = merged.plot.map(squares, key="iso", names=cc.country_codes(), palette="clubs")
+    styles = club_styles(merged)
+    assert sum(f == (styles["club1"]["color"], 1.0) for f in _fills(ax)) == 50
     plt.close("all")
 
 
-def test_uncertain_members_are_lighter(merged, squares):
+def test_palette_choice(merged, squares):
+    with pytest.warns(UserWarning):
+        ax = merged.plot.map(squares, key="iso", names=cc.country_codes(), colors=["#123456"])
+    assert ("#123456", 1.0) in _fills(ax)  # explicit colours imply the club palette
+    with pytest.raises(ValueError, match="palette"):
+        merged.plot.map(squares, key="iso", palette="rainbow")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        nine = cc.find_clubs(cc.load_filtered_gdp(), time_trim=0.3)
+        ax = nine.plot.map(squares, key="iso", names=cc.country_codes(), show_missing=False)
+    assert cc.LIGHT.colors[0] in {f[0] for f in _fills(ax)}  # > 7 clubs: club colours
+    plt.close("all")
+
+
+def test_uncertain_members_are_hatched(merged, squares):
     stability = pd.Series(1.0, index=merged.data.index)
     stability[["Peru", "Rwanda"]] = 0.5
     with pytest.warns(UserWarning):
         ax = merged.plot.map(
             squares, key="iso", names=cc.country_codes(), confidence=stability, show_missing=False
         )
-    alphas = [a for _, a in _fills(ax)]
-    assert alphas.count(0.4) == 2 and len(alphas) == 151
-    assert "stability < 0.8" in [t.get_text() for t in ax.get_legend().get_texts()]
+    hatched = [c for c in ax.collections if c.get_hatch()]
+    assert len(hatched) == 1 and len(hatched[0].get_paths()) == 2
+    assert len([f for f in _fills(ax) if f[1] > 0]) == 151  # colours unchanged
+    legend = ax.get_legend()
+    assert "stability < 0.8" in [t.get_text() for t in legend.get_texts()]
+    assert legend.legend_handles[-1].get_hatch() == "///"
     plt.close("all")
 
 
