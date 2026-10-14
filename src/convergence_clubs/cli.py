@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 import warnings
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -309,8 +309,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = result.merge(args.merge, merge_divergent=args.merge_divergent, **merge_options)
         elif args.merge_divergent:
             result = result.merge_divergent(estar=args.estar, joint_first=args.joint_divergent)
-        if args.club_names:
-            result = result.rename([name.strip() for name in args.club_names.split(";")])
+        names = _club_names(args)
+        if names:
+            result = result.rename(names)
     except (OSError, ValueError, TypeError, KeyError) as exc:
         print(f"convergence-clubs: error: {exc}", file=sys.stderr)
         return 1
@@ -330,120 +331,123 @@ def main(argv: Sequence[str] | None = None) -> int:
         result.memberships().to_csv(args.memberships)
     if args.summary:
         result.summary(members=args.members).to_csv(args.summary)
-    if args.plot or args.sensitivity_plot:
-        import matplotlib
-
-        matplotlib.use("Agg")
-    if args.html:
-        try:
-            result.plot.interactive(theme=args.theme).write_html(args.html)
-        except ImportError as exc:
-            print(f"convergence-clubs: error: {exc}", file=sys.stderr)
-            return 1
-    if args.report:
-        try:
-            # raw holds the series before HP filtering (in logs with --log).
-            built = report(
-                raw,
-                log=False,
-                filter_lambda=args.hp_filter,
-                convention=args.convention,
-                time_trim=args.time_trim,
-                hac_method=args.hac,
-                merge=args.merge,
-                bootstrap=args.bootstrap or 200,
-                seed=args.seed if args.seed is not None else 0,
-                title=f"Convergence analysis of {args.csv.name}",
-                theme=args.theme,
-                n_jobs=args.jobs,
-                **({"dpi": args.dpi} if args.dpi else {}),
-                club_names=[name.strip() for name in args.club_names.split(";")]
-                if args.club_names
-                else None,
-                cstar=args.cstar,
-                core_rule=args.core_rule,
-                sort_fraction=args.sort_fraction,
-            )
-            print(f"\nreport written to {built.save(args.report)}")
-        except (OSError, ValueError, TypeError, KeyError) as exc:
-            print(f"convergence-clubs: error in report: {exc}", file=sys.stderr)
-            return 1
-    if args.map:
-        if args.geodata is None:
-            print("convergence-clubs: error: --map needs --geodata", file=sys.stderr)
-            return 1
-        try:
-            import geopandas as gpd
-
-            with warnings.catch_warnings(record=True) as caught:
-                warnings.simplefilter("always", UserWarning)
-                ax = result.plot.map(
-                    gpd.read_file(args.geodata), key=args.geo_key, theme=args.theme
-                )
-            for w in caught:
-                print(f"convergence-clubs: warning: {w.message}", file=sys.stderr)
-            _figure(ax).savefig(args.map, dpi=args.dpi or 150)
-        except (ImportError, OSError, KeyError, ValueError) as exc:
-            print(f"convergence-clubs: error in map: {exc}", file=sys.stderr)
-            return 1
-    if args.plot:
-        result.plot(theme=args.theme, units=args.units, ncols=4).savefig(
-            args.plot, dpi=args.dpi or 150
-        )
-
-    if args.sensitivity or args.sensitivity_plot:
-        try:
-            _report_sensitivity(args, data, options)
-        except (OSError, ValueError, TypeError, KeyError) as exc:
-            print(f"convergence-clubs: error in sensitivity analysis: {exc}", file=sys.stderr)
-            return 1
-    if args.beta or args.beta_plot:
-        try:
-            _report_beta(args, raw, result)
-        except (OSError, ValueError, TypeError, KeyError) as exc:
-            print(f"convergence-clubs: error in β-convergence: {exc}", file=sys.stderr)
-            return 1
-    if args.sigma or args.sigma_plot:
-        try:
-            _report_sigma(args, raw, result)
-        except (OSError, ValueError, TypeError, KeyError) as exc:
-            print(f"convergence-clubs: error in σ-convergence: {exc}", file=sys.stderr)
-            return 1
-    if args.determinants:
-        try:
-            covariates = pd.read_csv(args.determinants, sep=args.sep, index_col=0)
-            fit = club_determinants(result, covariates, model=args.determinants_model)
-            print(
-                f"\ndeterminants of club membership (ordered {fit.model}, n = {fit.n}, "
-                f"pseudo-R2 = {fit.pseudo_r2:.3f}); > 0 means a higher club is more likely\n"
-            )
-            print(fit.summary().to_string(float_format=lambda v: f"{v:.4f}"))
-        except (OSError, ValueError, TypeError, KeyError) as exc:
-            print(f"convergence-clubs: error in determinants: {exc}", file=sys.stderr)
-            return 1
-    if args.pairwise:
-        try:
-            pw = pairwise_convergence(
-                raw, log=not args.log, clubs=result, kpss=True, n_jobs=args.jobs
-            )
-            print(f"\npairwise convergence (Pesaran, 2007): ADF and KPSS on {len(pw.pairs)} gaps\n")
-            print(pw.summary().to_string(float_format=lambda v: f"{v:.3f}"))
-        except (OSError, ValueError, TypeError, KeyError) as exc:
-            print(f"convergence-clubs: error in pairwise test: {exc}", file=sys.stderr)
-            return 1
-    if args.dynamics or args.dynamics_plot:
-        try:
-            _report_dynamics(args, raw, result)
-        except (OSError, ValueError, TypeError, KeyError) as exc:
-            print(f"convergence-clubs: error in distribution dynamics: {exc}", file=sys.stderr)
-            return 1
-    if args.bootstrap:
-        try:
-            _report_bootstrap(args, raw, options)
-        except (OSError, ValueError, TypeError, KeyError) as exc:
-            print(f"convergence-clubs: error in bootstrap: {exc}", file=sys.stderr)
+    # Each requested output or analysis is one step; the first that fails stops
+    # the run with its error (exit status 1).
+    steps: list[tuple[Any, str, Callable[[], None]]] = [
+        (args.html, "interactive chart", lambda: _write_html(args, result)),
+        (args.report, "report", lambda: _write_report(args, raw)),
+        (args.map, "map", lambda: _write_map(args, result)),
+        (args.plot, "plot", lambda: _write_plot(args, result)),
+        (
+            args.sensitivity or args.sensitivity_plot,
+            "sensitivity analysis",
+            lambda: _report_sensitivity(args, data, options),
+        ),
+        (args.beta or args.beta_plot, "β-convergence", lambda: _report_beta(args, raw, result)),
+        (args.sigma or args.sigma_plot, "σ-convergence", lambda: _report_sigma(args, raw, result)),
+        (args.determinants, "determinants", lambda: _report_determinants(args, result)),
+        (args.pairwise, "pairwise test", lambda: _report_pairwise(args, raw, result)),
+        (
+            args.dynamics or args.dynamics_plot,
+            "distribution dynamics",
+            lambda: _report_dynamics(args, raw, result),
+        ),
+        (args.bootstrap, "bootstrap", lambda: _report_bootstrap(args, raw, options)),
+    ]
+    for wanted, label, action in steps:
+        if wanted and not _step(label, action):
             return 1
     return 0
+
+
+_ERRORS = (ImportError, OSError, ValueError, TypeError, KeyError)
+
+
+def _step(label: str, action: Callable[[], None]) -> bool:
+    """Run one step; on a user-facing error print it and return False."""
+    try:
+        action()
+    except _ERRORS as exc:
+        print(f"convergence-clubs: error in {label}: {exc}", file=sys.stderr)
+        return False
+    return True
+
+
+def _write_html(args: argparse.Namespace, result) -> None:
+    result.plot.interactive(theme=args.theme).write_html(args.html)
+
+
+def _write_plot(args: argparse.Namespace, result) -> None:
+    _use_agg()
+    figure = result.plot(theme=args.theme, units=args.units, ncols=4)
+    figure.savefig(args.plot, dpi=args.dpi or 150)
+
+
+def _write_report(args: argparse.Namespace, raw: pd.DataFrame) -> None:
+    # raw holds the series before HP filtering (in logs with --log).
+    built = report(
+        raw,
+        log=False,
+        filter_lambda=args.hp_filter,
+        convention=args.convention,
+        time_trim=args.time_trim,
+        hac_method=args.hac,
+        merge=args.merge,
+        bootstrap=args.bootstrap or 200,
+        seed=args.seed if args.seed is not None else 0,
+        title=f"Convergence analysis of {args.csv.name}",
+        theme=args.theme,
+        n_jobs=args.jobs,
+        **({"dpi": args.dpi} if args.dpi else {}),
+        club_names=_club_names(args),
+        cstar=args.cstar,
+        core_rule=args.core_rule,
+        sort_fraction=args.sort_fraction,
+    )
+    print(f"\nreport written to {built.save(args.report)}")
+
+
+def _write_map(args: argparse.Namespace, result) -> None:
+    if args.geodata is None:
+        raise ValueError("--map needs --geodata")
+    import geopandas as gpd
+
+    _use_agg()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", UserWarning)
+        ax = result.plot.map(gpd.read_file(args.geodata), key=args.geo_key, theme=args.theme)
+    for w in caught:
+        print(f"convergence-clubs: warning: {w.message}", file=sys.stderr)
+    _figure(ax).savefig(args.map, dpi=args.dpi or 150)
+
+
+def _report_determinants(args: argparse.Namespace, result) -> None:
+    covariates = pd.read_csv(args.determinants, sep=args.sep, index_col=0)
+    fit = club_determinants(result, covariates, model=args.determinants_model)
+    print(
+        f"\ndeterminants of club membership (ordered {fit.model}, n = {fit.n}, "
+        f"pseudo-R2 = {fit.pseudo_r2:.3f}); > 0 means a higher club is more likely\n"
+    )
+    print(fit.summary().to_string(float_format=lambda v: f"{v:.4f}"))
+
+
+def _report_pairwise(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
+    pw = pairwise_convergence(raw, log=not args.log, clubs=result, kpss=True, n_jobs=args.jobs)
+    print(f"\npairwise convergence (Pesaran, 2007): ADF and KPSS on {len(pw.pairs)} gaps\n")
+    print(pw.summary().to_string(float_format=lambda v: f"{v:.3f}"))
+
+
+def _use_agg() -> None:
+    """Draw without a display: the command line only saves figures."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+
+
+def _club_names(args: argparse.Namespace) -> list[str] | None:
+    if not args.club_names:
+        return None
+    return [name.strip() for name in args.club_names.split(";")]
 
 
 def _report_sensitivity(args: argparse.Namespace, data: pd.DataFrame, options: dict) -> None:
@@ -466,6 +470,7 @@ def _report_sensitivity(args: argparse.Namespace, data: pd.DataFrame, options: d
     print("\nleast stable units (share of runs with their baseline club mates)\n")
     print(least.to_string(float_format=lambda v: f"{v:.2f}"))
     if args.sensitivity_plot:
+        _use_agg()
         ax = runs.plot(theme=args.theme)
         _figure(ax).savefig(args.sensitivity_plot, dpi=args.dpi or 150)
 
@@ -484,9 +489,7 @@ def _report_beta(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
     print("\nwithin clubs\n")
     print(absolute.by_club().to_string(float_format=lambda v: f"{v:.4f}"))
     if args.beta_plot:
-        import matplotlib
-
-        matplotlib.use("Agg")
+        _use_agg()
         _figure(conditional.plot(theme=args.theme)).savefig(args.beta_plot, dpi=args.dpi or 150)
 
 
@@ -496,9 +499,7 @@ def _report_sigma(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
     print(f"\nσ-convergence (sd of log, Newey-West with {sigma.hac_lags} lags)\n")
     print(trend.to_string(float_format=lambda v: f"{v:.4f}"))
     if args.sigma_plot:
-        import matplotlib
-
-        matplotlib.use("Agg")
+        _use_agg()
         _figure(sigma.plot(index=True, theme=args.theme)).savefig(
             args.sigma_plot, dpi=args.dpi or 150
         )
@@ -521,9 +522,7 @@ def _report_dynamics(args: argparse.Namespace, raw: pd.DataFrame, result) -> Non
     print("\nclubs by class in the last period\n")
     print(dyn.composition().to_string())
     if args.dynamics_plot:
-        import matplotlib
-
-        matplotlib.use("Agg")
+        _use_agg()
         dyn.plot(theme=args.theme).savefig(args.dynamics_plot, dpi=args.dpi or 150)
 
 
