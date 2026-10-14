@@ -115,6 +115,10 @@ def ols(y: np.ndarray, X: np.ndarray, cov_type: str = "HC1", lags: int | None = 
     n, k = X.shape
     if n <= k:
         raise ValueError(f"need more observations ({n}) than regressors ({k})")
+    # Check the rank explicitly: whether inv() fails on a singular X'X depends on
+    # the BLAS (OpenBLAS with numpy 1.23 returns huge finite numbers instead).
+    if np.linalg.matrix_rank(X) < k:
+        raise ValueError("the regression could not be estimated (collinear regressors?)")
     # numpy 2.0-2.2 with macOS Accelerate can emit spurious floating-point warnings
     # from matmul; real numerical problems are caught by the finiteness check below.
     with np.errstate(all="ignore"):
