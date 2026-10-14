@@ -40,8 +40,10 @@ package `psecta` (Du, 2018) on the published results of Mendez (2020). See
 pip install "convergence-clubs[plot] @ git+https://github.com/bbanyuls/club-convergence"
 ```
 
-The core package needs only `numpy` and `pandas`. The `plot` extra adds `matplotlib`, the
-`interactive` extra adds `plotly`, and the `maps` extra adds `geopandas`.
+The core package needs only `numpy` (≥ 1.23) and `pandas` (≥ 1.5), on Python 3.10 or later.
+The `plot` extra adds `matplotlib` (≥ 3.7), the `interactive` extra adds `plotly` (≥ 5.15), and
+the `maps` extra adds `geopandas` (≥ 0.14.4). CI runs the tests on these oldest versions as
+well as on the latest ones.
 
 ## Quick start
 

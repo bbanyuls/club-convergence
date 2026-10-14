@@ -10,6 +10,14 @@ from statsmodels.tsa.stattools import adfuller
 import convergence_clubs as cc
 
 
+def _tuple(func, *args, **kwargs):
+    """statsmodels' plain tuple result; result_object= only exists from 0.15."""
+    try:
+        return func(*args, result_object=False, **kwargs)
+    except TypeError:
+        return func(*args, **kwargs)
+
+
 def _arma(rng, n, phi):
     e = rng.normal(size=n)
     x = np.zeros(n)
@@ -25,9 +33,7 @@ def test_adf_matches_statsmodels(regression, autolag):
     for _ in range(60):
         n = int(rng.integers(20, 120))
         x = _arma(rng, n, rng.choice([1.0, 0.95, 0.7, 0.3])) + 0.02 * rng.normal() * np.arange(n)
-        stat, p, lags, nobs, *_ = adfuller(
-            x, regression=regression, autolag=autolag, result_object=False
-        )
+        stat, p, lags, nobs, *_ = _tuple(adfuller, x, regression=regression, autolag=autolag)
         ours = cc.adf_test(x, regression=regression, autolag=autolag)
         assert ours.lags == lags and ours.nobs == nobs
         assert ours.stat == pytest.approx(stat, abs=1e-9)
@@ -161,7 +167,7 @@ def test_kpss_matches_statsmodels(regression, nlags):
         x = _arma(rng, n, rng.choice([1.0, 0.9, 0.5, 0.0])) + 0.03 * rng.normal() * np.arange(n)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")  # statsmodels warns when p is outside its table
-            stat, p, lags, _ = kpss(x, regression=regression, nlags=nlags, result_object=False)
+            stat, p, lags, _ = _tuple(kpss, x, regression=regression, nlags=nlags)
         ours = cc.kpss_test(x, regression=regression, nlags=nlags)
         assert ours.lags == lags
         assert ours.stat == pytest.approx(stat, abs=1e-12)

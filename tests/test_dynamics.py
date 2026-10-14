@@ -89,7 +89,8 @@ def test_kde_matches_scipy(gdp):
     ref = scipy.stats.gaussian_kde(x, bw_method=h / x.std(ddof=1))(grid)
     np.testing.assert_allclose(gaussian_kde(x, grid, h), ref, rtol=1e-10)
     density = cc.distribution_dynamics(gdp).density(2003)
-    assert np.trapezoid(density.to_numpy(), np.log(density.index)) == pytest.approx(1, abs=1e-3)
+    trapezoid = getattr(np, "trapezoid", None) or np.trapz  # noqa: NPY201 (numpy < 2)
+    assert trapezoid(density.to_numpy(), np.log(density.index)) == pytest.approx(1, abs=1e-3)
 
 
 def test_errors(gdp):
