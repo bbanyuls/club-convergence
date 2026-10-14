@@ -234,3 +234,27 @@ def test_transition_paths_are_the_plotted_values(merged):
     np.testing.assert_allclose(
         ax.get_lines()[0].get_ydata(), merged.transition_paths().loc["club6"].mean().to_numpy()
     )
+
+
+def test_style_fields(merged):
+    ax = merged.plot.average(theme="journal")
+    assert all(ax.spines[side].get_visible() for side in ("top", "right", "bottom", "left"))
+    assert not any(line.get_visible() for line in ax.get_ygridlines())
+    assert ax.get_title(loc="center") and not ax.get_title(loc="left")
+    assert ax.yaxis.get_major_ticks()[0].tick1line.get_markersize() == 3.5
+
+    ax = merged.plot.average()
+    assert not ax.spines["left"].get_visible()
+    assert ax.get_title(loc="left") and all(line.get_visible() for line in ax.get_ygridlines())
+
+    thick = cc.LIGHT.replace(line_width=4, marker_size=80)
+    ax = merged.plot.average(theme=thick, clubs="club1")
+    assert _data_lines(ax)[0].get_linewidth() == 4
+    ax = merged.plot.log_t("club1", theme=thick)
+    assert ax.collections[0].get_sizes()[0] == 80
+    ax = merged.plot.club("club4", theme=thick)
+    assert ax.get_lines()[0].get_linewidth() == pytest.approx(1.6)  # units: 0.4 x line_width
+
+    for bad in ({"frame": "round"}, {"title_loc": "top"}, {"line_width": 0}):
+        with pytest.raises(ValueError):
+            cc.LIGHT.replace(**bad)

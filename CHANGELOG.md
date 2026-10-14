@@ -39,6 +39,7 @@ All notable changes to this project are documented here. The format follows
 ### Plots and output
 - Customizable matplotlib plots with light and dark themes and a palette checked for color-blind readers. They include transition paths, H(t), the log t regression, co-membership, stability, β, σ, dynamics and determinants ([#1](https://github.com/bbanyuls/club-convergence/pull/1) and later).
 - Default theme for all plots, charts, maps and reports (`set_theme`, `theme_context`), named custom themes (`register_theme`, usable by name), a black-and-white `"print"` theme, `Theme.linestyles`, and `--theme print` / `--dpi` in the command line.
+- Theme style fields for every plot and interactive chart: `line_width`, `marker_size`, `gridlines`, `frame` (`"box"` for journals) and `title_loc`, and a built-in `"journal"` theme.
 - Clearer encodings, checked with a palette validator:
   - maps shade the clubs with one ordered hue (club 1 darkest) and hatch uncertain members, with a matching legend;
   - an ordinal ramp interpolated in OKLab (`Theme.ordinal`, `ordinal_colors`) for initial/final/ergodic shares and density periods, instead of the club colors;

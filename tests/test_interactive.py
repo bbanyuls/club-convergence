@@ -99,3 +99,13 @@ def test_club_names_are_escaped():
     fig = clubs.plot.interactive(clubs=["Rich & <fast>"])
     assert fig.data[-1].name == "Rich &amp; &lt;fast&gt;"
     assert "Rich &amp; &lt;fast&gt;" in fig.layout.annotations[0].text
+
+
+def test_style_fields_reach_plotly():
+    clubs = cc.find_clubs(cc.load_filtered_gdp())
+    fig = clubs.plot.interactive(kind="average", theme="journal")
+    assert fig.layout.yaxis.mirror is True and fig.layout.yaxis.showgrid is False
+    assert fig.layout.title.xanchor == "center"
+    assert fig.data[0].line.width == pytest.approx(1.25 * cc.JOURNAL.line_width)
+    fig = clubs.plot.interactive(kind="average")
+    assert fig.layout.yaxis.mirror is None and fig.layout.title.xanchor == "left"

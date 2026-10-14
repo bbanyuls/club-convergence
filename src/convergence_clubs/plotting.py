@@ -102,6 +102,18 @@ class Theme:
     #: Stops of a one-hue ramp from "low" to "high", for ordered classes
     #: (clubs on a map, initial -> final -> ergodic); see :func:`ordinal_colors`.
     ordinal: tuple[str, ...] = ("#86b6ef", "#2a78d6", "#0d366b")
+    #: Width of the main data lines (club averages, H(t), densities, ...);
+    #: secondary lines are drawn in proportion.
+    line_width: float = 2.0
+    #: Area of scatter markers, in points squared.
+    marker_size: float = 30.0
+    #: Horizontal gridlines.
+    gridlines: bool = True
+    #: ``"minimal"`` (baseline only, no ticks) or ``"box"`` (all four spines and
+    #: outward ticks, the usual look in journals).
+    frame: Literal["minimal", "box"] = "minimal"
+    #: Alignment of panel titles: ``"left"``, ``"center"`` or ``"right"``.
+    title_loc: Literal["left", "center", "right"] = "left"
 
     def __post_init__(self) -> None:
         if (
@@ -110,6 +122,12 @@ class Theme:
             or min(len(self.sequential), len(self.ordinal)) < 2
         ):
             raise ValueError("a Theme needs colours, line styles and two-stop ramps")
+        if self.frame not in ("minimal", "box"):
+            raise ValueError("frame must be 'minimal' or 'box'")
+        if self.title_loc not in ("left", "center", "right"):
+            raise ValueError("title_loc must be 'left', 'center' or 'right'")
+        if self.line_width <= 0 or self.marker_size <= 0:
+            raise ValueError("line_width and marker_size must be positive")
 
     def with_colors(self, colors: Sequence[str]) -> Theme:
         """Copy of the theme with other club colours."""
@@ -161,7 +179,12 @@ PRINT = Theme(
     linestyles=("-", (0, (5, 2)), (0, (1, 1.5)), (0, (6, 2, 1, 2))),
     ordinal=("#c4c4c4", "#6b6b6b", "#000000"),
 )
-THEMES: dict[str, Theme] = {"light": LIGHT, "dark": DARK, "print": PRINT}
+# The usual look of an economics journal: a box around each panel, outward
+# ticks, no gridlines and centred titles, on white, with the light palette.
+JOURNAL = LIGHT.replace(
+    surface="#ffffff", frame="box", gridlines=False, title_loc="center", line_width=1.6
+)
+THEMES: dict[str, Theme] = {"light": LIGHT, "dark": DARK, "print": PRINT, "journal": JOURNAL}
 _default_theme: list[str | Theme] = ["light"]
 
 
@@ -291,14 +314,21 @@ def _style_axes(ax: Axes, theme: Theme, x=None, labels: list[str] | None = None)
 
     ax.figure.set_facecolor(theme.surface)
     ax.set_facecolor(theme.surface)
-    ax.grid(True, axis="y", color=theme.grid, linewidth=1)
+    # grid(False, color=...) would turn the grid on: style arguments imply visible.
+    if theme.gridlines:
+        ax.grid(True, axis="y", color=theme.grid, linewidth=1)
+    else:
+        ax.grid(False, axis="y")
     ax.set_axisbelow(True)
+    box = theme.frame == "box"
     for side in ("top", "right", "left"):
-        ax.spines[side].set_visible(False)
-    ax.spines["bottom"].set_color(theme.baseline)
+        ax.spines[side].set_visible(box)
+    for spine in ax.spines.values():
+        spine.set_color(theme.baseline)
     ax.tick_params(
-        colors=theme.ink_muted, labelcolor=theme.ink_secondary, length=0, labelsize=theme.font_size
-    )
+        colors=theme.baseline if box else theme.ink_muted, labelcolor=theme.ink_secondary,
+        length=3.5 if box else 0, direction="out", labelsize=theme.font_size,
+    )  # fmt: skip
     if labels is not None:
         ax.xaxis.set_major_locator(MaxNLocator(nbins=6, integer=True))
         ax.xaxis.set_major_formatter(
@@ -310,7 +340,7 @@ def _style_axes(ax: Axes, theme: Theme, x=None, labels: list[str] | None = None)
 
 def _decorate(ax: Axes, theme: Theme, title: str | None, ylabel: str | None, xlabel=None) -> None:
     if title:
-        ax.set_title(title, loc="left", color=theme.ink, fontsize=theme.font_size + 1)
+        ax.set_title(title, loc=theme.title_loc, color=theme.ink, fontsize=theme.font_size + 1)
     if ylabel:
         ax.set_ylabel(ylabel, fontsize=theme.font_size, color=theme.ink_secondary)
     if xlabel:
@@ -354,7 +384,7 @@ def _end_dot(ax: Axes, theme: Theme, x, y, color: str) -> None:
         [x],
         [y],
         marker="o",
-        markersize=6,
+        markersize=math.sqrt(theme.marker_size * 1.2),
         color=color,
         markeredgecolor=theme.surface,
         markeredgewidth=1.5,
@@ -407,8 +437,10 @@ def plot_club(
     x, labels = _x_values(result.data.columns)
     h = relative_transition(result.values)[list(c.ids)]
 
+    kws: dict[str, Any]
     if units == "lines":
-        kws = {"color": th.ink_muted, "linewidth": 0.8, "alpha": th.unit_alpha, **(unit_kws or {})}
+        kws = {"color": th.ink_muted, "linewidth": 0.4 * th.line_width, "alpha": th.unit_alpha}
+        kws |= unit_kws or {}
         for row in h:
             ax.plot(x, row, zorder=2, **kws)
     elif units == "band":
@@ -421,7 +453,12 @@ def plot_club(
     if reference_line:
         ax.axhline(1.0, color=th.baseline, linewidth=1, zorder=1)
     if show_average:
-        kws = {**style, "linewidth": 2, "solid_capstyle": "round", **(average_kws or {})}
+        kws = {
+            **style,
+            "linewidth": th.line_width,
+            "solid_capstyle": "round",
+            **(average_kws or {}),
+        }
         ax.plot(x, h.mean(axis=0), zorder=3, label=f"{c.name} average", **kws)
 
     names = list(result.data.index[list(c.ids)])
@@ -429,7 +466,7 @@ def plot_club(
     for unit in highlight or ():
         if unit in names:
             row = h[names.index(unit)]
-            ax.plot(x, row, color=th.ink, linewidth=1.4, zorder=4, label=str(unit))
+            ax.plot(x, row, color=th.ink, linewidth=0.7 * th.line_width, zorder=4, label=str(unit))
             entries.append((str(unit), row[-1]))
 
     _style_axes(ax, th, x, labels)
@@ -489,9 +526,13 @@ def plot_average_paths(
             label, muted_label = muted_label, "_nolegend_"
         kws = {
             **styles[c.name],
-            "linewidth": 2,
+            "linewidth": th.line_width,
             "solid_capstyle": "round",
-            **({"color": th.ink_muted, "linewidth": 1.2, "alpha": 0.8} if muted else {}),
+            **(
+                {"color": th.ink_muted, "linewidth": 0.6 * th.line_width, "alpha": 0.8}
+                if muted
+                else {}
+            ),
             **(line_kws or {}),
         }
         ax.plot(x, mean, label=label, zorder=2 if muted else 3, **kws)
@@ -540,14 +581,17 @@ def plot_cross_sectional_variation(
 
     if include_all:
         H = cross_sectional_variation(result.values)
-        ax.plot(x, H, color=th.ink_muted, linewidth=1.5, label="all units", zorder=2)
+        ax.plot(
+            x, H, color=th.ink_muted, linewidth=0.75 * th.line_width, label="all units", zorder=2
+        )
     for c in _select(result, clubs):
         H = cross_sectional_variation(result.values[list(c.ids)])
         kwargs: dict[str, Any]
         if len(c) < 3:  # H of one or two units swings wildly; keep it from dominating
-            kwargs = {"label": f"{c.name} ({len(c)} units)", "linewidth": 1.2, "alpha": 0.6}
+            kwargs = {"label": f"{c.name} ({len(c)} units)", "alpha": 0.6}
+            kwargs["linewidth"] = 0.6 * th.line_width
         else:
-            kwargs = {"label": c.name, "linewidth": 2}
+            kwargs = {"label": c.name, "linewidth": th.line_width}
         ax.plot(x, H, solid_capstyle="round", zorder=3, **kwargs, **styles[c.name])
     if log_scale:
         ax.set_yscale("log")
@@ -611,15 +655,17 @@ def plot_log_t(
         early_t, early_y = log_t_regression_data(H[: len(H) - len(log_t)], 0.0)
         keep = early_t > 0
         ax.scatter(
-            early_t[keep], early_y[keep], s=30, facecolors="none", edgecolors=th.ink_muted,
-            linewidths=1, zorder=3, label=f"discarded (first {result.time_trim:.0%} of periods)",
+            early_t[keep], early_y[keep], s=th.marker_size, facecolors="none",
+            edgecolors=th.ink_muted, linewidths=1, zorder=3,
+            label=f"discarded (first {result.time_trim:.0%} of periods)",
         )  # fmt: skip
     ax.scatter(
-        log_t, y, s=30, color=color, edgecolors=th.surface, linewidths=1.2, zorder=3,
+        log_t, y, s=th.marker_size, color=color, edgecolors=th.surface, linewidths=1.2, zorder=3,
         label="regression window",
     )  # fmt: skip
     grid = np.linspace(log_t.min(), log_t.max(), 50)
-    ax.plot(grid, model.alpha + model.beta * grid, color=th.ink, linewidth=1.5, zorder=2)
+    ax.plot(grid, model.alpha + model.beta * grid, color=th.ink, linewidth=0.75 * th.line_width,
+            zorder=2)  # fmt: skip
     verdict = "convergence not rejected" if model.converges() else "convergence rejected"
     ax.text(
         0.02,
@@ -822,16 +868,17 @@ def plot_beta(
     for group in groups:
         part = units if group == "all units" else units[units["club"] == group]
         ax.scatter(
-            part["log_initial"], part["growth"], s=30, color=palette[group],
+            part["log_initial"], part["growth"], s=th.marker_size, color=palette[group],
             edgecolors=th.surface, linewidths=1.2, zorder=3, label=group,
         )  # fmt: skip
         if show_fit and result.club_effects and group != "all units" and len(part) > 1:
             x = np.linspace(part["log_initial"].min(), part["log_initial"].max(), 20)
-            ax.plot(x, _fitted_line(result, x, group), color=palette[group], linewidth=2,
-                    solid_capstyle="round", zorder=4, label="_nolegend_")  # fmt: skip
+            ax.plot(x, _fitted_line(result, x, group), color=palette[group],
+                    linewidth=th.line_width, solid_capstyle="round", zorder=4,
+                    label="_nolegend_")  # fmt: skip
     if show_fit and not result.club_effects:
         x = np.linspace(units["log_initial"].min(), units["log_initial"].max(), 50)
-        ax.plot(x, _fitted_line(result, x), color=th.ink, linewidth=1.5, zorder=4,
+        ax.plot(x, _fitted_line(result, x), color=th.ink, linewidth=0.75 * th.line_width, zorder=4,
                 label="_nolegend_")  # fmt: skip
 
     years = pd.api.types.is_numeric_dtype(pd.Index([result.start, result.end]))
@@ -910,9 +957,9 @@ def plot_sigma(
         y = series[group].to_numpy()
         kws: dict[str, Any]
         if group == ALL:
-            kws = {"color": th.ink_muted, "linewidth": 2, "zorder": 2}
+            kws = {"color": th.ink_muted, "linewidth": th.line_width, "zorder": 2}
         else:
-            kws = {"color": palette[group], "linewidth": 2, "zorder": 3}
+            kws = {"color": palette[group], "linewidth": th.line_width, "zorder": 3}
         ax.plot(x, y, label=group, solid_capstyle="round", **kws)
         _end_dot(ax, th, x[-1], y[-1], kws["color"])
         entries.append((group, y[-1]))
@@ -1064,7 +1111,7 @@ def plot_densities(
     ax.axvline(1.0, color=th.baseline, linewidth=1, zorder=1)
     for period, color in zip(periods, line_colors, strict=True):
         density = result.density(period, bandwidth=bandwidth)
-        ax.plot(density.index, density.to_numpy(), color=color, linewidth=2,
+        ax.plot(density.index, density.to_numpy(), color=color, linewidth=th.line_width,
                 solid_capstyle="round", label=str(period), zorder=3)  # fmt: skip
 
     if rug and result.clubs is not None:
@@ -1117,12 +1164,13 @@ def plot_determinants(
     low = coef["coef"] - z * coef["std_err"]
     high = coef["coef"] + z * coef["std_err"]
     ax.axvline(0, color=th.baseline, linewidth=1, zorder=1)
-    ax.hlines(y, low, high, color=th.colors[0], linewidth=2, zorder=2)
-    ax.scatter(coef["coef"], y, s=40, color=th.colors[0], edgecolors=th.surface,
+    ax.hlines(y, low, high, color=th.colors[0], linewidth=th.line_width, zorder=2)
+    ax.scatter(coef["coef"], y, s=th.marker_size * 4 / 3, color=th.colors[0], edgecolors=th.surface,
                linewidths=1.5, zorder=3)  # fmt: skip
     _style_axes(ax, th)
     ax.grid(False, axis="y")
-    ax.grid(True, axis="x", color=th.grid, linewidth=1)
+    if th.gridlines:
+        ax.grid(True, axis="x", color=th.grid, linewidth=1)
     ax.set_yticks(y, list(coef.index))
     auto = f"Determinants of club membership (ordered {result.model})"
     _decorate(

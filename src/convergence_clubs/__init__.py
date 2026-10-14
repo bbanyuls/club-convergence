@@ -38,6 +38,7 @@ from .pairwise import (
 from .panel import balance, describe_missing, fill_gaps, wide_panel
 from .plotting import (
     DARK,
+    JOURNAL,
     LIGHT,
     PRINT,
     Theme,
@@ -79,6 +80,7 @@ __all__ = [
     "CRITICAL_VALUE",
     "BetaResult",
     "DARK",
+    "JOURNAL",
     "LIGHT",
     "PRINT",
     "Club",
