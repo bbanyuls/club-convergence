@@ -14,7 +14,7 @@ from __future__ import annotations
 import html
 import math
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
     from .beta import BetaResult
     from .results import ConvergenceClubs
+    from .rolling import RollingClubs
     from .sensitivity import SensitivityResult
     from .sigma import SigmaResult
 
@@ -323,3 +324,62 @@ def sigma_figure(
     _layout(fig, th, auto if title == "auto" else title, height=460, hovermode="x unified")
     fig.update_yaxes(title_text=LABELS[result.measure] + (" (first period = 1)" if index else ""))
     return fig
+
+
+# -- rolling windows ------------------------------------------------------------------
+
+
+def rolling_figure(
+    result: RollingClubs,
+    *,
+    theme: str | Theme | None = None,
+    title: str | None = "Club membership across windows",
+    height: int = 520,
+) -> go.Figure:
+    """Sankey diagram of units moving between the clubs of consecutive windows (hover: counts)."""
+    from matplotlib.colors import to_rgb
+
+    go, _ = _go()
+    th = _theme(theme)
+    members = result.memberships()
+    nodes: list[tuple[str, str]] = []  # (window, group)
+    colors: list[str] = []
+    for window, res in zip(result.windows, result.results, strict=True):
+        groups = [c.name for c in res.clubs] + (["divergent"] if res.n_divergent else [])
+        for k, group in enumerate(groups):
+            nodes.append((window, group))
+            colors.append(th.ink_muted if group == "divergent" else th.colors[k % len(th.colors)])
+    index = {node: i for i, node in enumerate(nodes)}
+    sources, targets, values, link_colors = [], [], [], []
+    for a, b in zip(result.windows[:-1], result.windows[1:], strict=True):
+        flows = cast(
+            dict[tuple[str, str], int], (members.groupby([members[a], members[b]]).size().to_dict())
+        )
+        for (ga, gb), count in flows.items():
+            sources.append(index[(a, ga)])
+            targets.append(index[(b, gb)])
+            values.append(int(count))
+            r, g, bl = (round(255 * v) for v in to_rgb(colors[index[(a, ga)]]))
+            link_colors.append(f"rgba({r},{g},{bl},0.35)")
+    fig = go.Figure(
+        go.Sankey(
+            arrangement="snap",
+            node={
+                "label": [f"{group}" for _, group in nodes],
+                "customdata": [window for window, _ in nodes],
+                "hovertemplate": "%{label}, %{customdata}: %{value} units<extra></extra>",
+                "color": colors,
+                "pad": 12,
+                "thickness": 14,
+                "line": {"width": 0},
+            },
+            link={
+                "source": sources,
+                "target": targets,
+                "value": values,
+                "color": link_colors,
+                "hovertemplate": "%{source.label} → %{target.label}: %{value} units<extra></extra>",
+            },
+        )
+    )
+    return _layout(fig, th, title, height=height)

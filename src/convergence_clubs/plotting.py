@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from .dynamics import DynamicsResult
     from .pairwise import PairwiseResult
     from .results import Club, ConvergenceClubs
+    from .rolling import RollingClubs
     from .sensitivity import SensitivityResult
     from .sigma import SigmaResult
 
@@ -1389,3 +1390,134 @@ def plot_transition_paths(
     if title:
         fig.suptitle(title, x=0.01, ha="left", color=th.ink, fontsize=th.font_size + 3)
     return fig
+
+
+# -- rolling windows -------------------------------------------------------------
+
+
+def _hex_alpha(color: str, alpha: float) -> tuple[float, float, float, float]:
+    from matplotlib.colors import to_rgb
+
+    return (*to_rgb(color), alpha)
+
+
+def _rolling_layout(result: RollingClubs, gap: float) -> tuple[list[dict], float]:
+    """Vertical extent (bottom, top) of every club bar, window by window, on a 0-1 scale."""
+    members = result.memberships()
+    n_units = len(members)
+    most = max(r.n_clubs + (r.n_divergent > 0) for r in result.results)
+    scale = (1 - gap * (most - 1)) / n_units
+    layout = []
+    for window, res in zip(result.windows, result.results, strict=True):
+        counts = members[window].value_counts()
+        groups = [c.name for c in res.clubs] + (["divergent"] if res.n_divergent else [])
+        extents, top = {}, 1.0
+        for group in groups:
+            height = counts.get(group, 0) * scale
+            extents[group] = (top - height, top)
+            top -= height + gap
+        layout.append(extents)
+    return layout, scale
+
+
+def _rolling_color(th: Theme, position: int | None, colors: Colors) -> str:
+    if position is None:
+        return th.ink_muted
+    if isinstance(colors, Sequence) and not isinstance(colors, str) and position < len(colors):
+        return colors[position]
+    return th.colors[position % len(th.colors)]
+
+
+def plot_rolling(
+    result: RollingClubs,
+    *,
+    ax: Axes | None = None,
+    bar_width: float = 0.1,
+    gap: float = 0.025,
+    flow_alpha: float = 0.35,
+    labels: bool = True,
+    theme: str | Theme | None = None,
+    colors: Sequence[str] | None = None,
+    title: str | None = "auto",
+) -> Axes:
+    """Flows of units between the clubs of consecutive windows (an alluvial diagram).
+
+    Each window is a column of bars, one per club (club 1, the highest, on
+    top; divergent units at the bottom), with heights proportional to the
+    number of units. Bands join the clubs of consecutive windows; their
+    width is the number of units that go from one to the other, so units
+    that change club show as bands that cross. Bars and bands take the
+    colour of the club's position (club 1 = first colour), which is a rank
+    within each window, not the same group.
+    """
+    from matplotlib.patches import PathPatch, Rectangle
+    from matplotlib.path import Path
+
+    th = _theme(theme)
+    ax = _new_axes(ax, th, figsize=(max(6.4, 2.3 * len(result)), 4.8))
+    layout, scale = _rolling_layout(result, gap)
+    members = result.memberships()
+
+    def position(res: ConvergenceClubs, group: str) -> int | None:
+        names = [c.name for c in res.clubs]
+        return names.index(group) if group in names else None
+
+    half = bar_width / 2
+    for i in range(len(result) - 1):
+        a, b = result.windows[i], result.windows[i + 1]
+        flows = members.groupby([members[a], members[b]]).size().to_dict()
+        source_top = {g: top for g, (_, top) in layout[i].items()}
+        target_top = {g: top for g, (_, top) in layout[i + 1].items()}
+        x0, x1 = i + half, i + 1 - half
+        middle = (x0 + x1) / 2
+        for ga in layout[i]:  # sources top to bottom, then targets top to bottom
+            for gb in layout[i + 1]:
+                count = int(flows.get((ga, gb), 0))
+                if not count:
+                    continue
+                height = count * scale
+                s, t = source_top[ga], target_top[gb]
+                source_top[ga] -= height
+                target_top[gb] -= height
+                vertices = [
+                    (x0, s), (middle, s), (middle, t), (x1, t),
+                    (x1, t - height), (middle, t - height), (middle, s - height), (x0, s - height),
+                    (x0, s),
+                ]  # fmt: skip
+                codes = [Path.MOVETO, *[Path.CURVE4] * 3, Path.LINETO, *[Path.CURVE4] * 3]
+                codes.append(Path.CLOSEPOLY)
+                color = _rolling_color(th, position(result[i], ga), colors)
+                ax.add_patch(
+                    PathPatch(Path(vertices, codes), facecolor=_hex_alpha(color, flow_alpha),
+                              edgecolor="none", zorder=2)
+                )  # fmt: skip
+
+    for i, (res, extents) in enumerate(zip(result.results, layout, strict=True)):
+        for group, (bottom, top) in extents.items():
+            color = _rolling_color(th, position(res, group), colors)
+            ax.add_patch(
+                Rectangle((i - half, bottom), bar_width, top - bottom, facecolor=color,
+                          edgecolor=th.surface, linewidth=1, zorder=3)
+            )  # fmt: skip
+            if labels and top - bottom > 0.015:
+                count = round((top - bottom) / scale)
+                ax.annotate(
+                    f"{group} ({count})", (i + half, (top + bottom) / 2), xytext=(4, 0),
+                    textcoords="offset points", va="center", fontsize=th.font_size - 1.5,
+                    color=th.ink_secondary, zorder=4,
+                    bbox={"boxstyle": "round,pad=0.15", "facecolor": th.surface,
+                          "edgecolor": "none", "alpha": 0.75},
+                )  # fmt: skip
+
+    ax.set_xlim(-0.4, len(result) - 0.4)
+    ax.set_ylim(-0.01, 1.01)
+    ax.set_xticks(range(len(result)), list(result.windows))
+    ax.set_yticks([])
+    for side in ("top", "right", "left", "bottom"):
+        ax.spines[side].set_visible(False)
+    ax.tick_params(length=0, labelsize=th.font_size, labelcolor=th.ink_secondary)
+    ax.set_facecolor(th.surface)
+    ax.figure.set_facecolor(th.surface)
+    auto = "Club membership across windows"
+    _decorate(ax, th, auto if title == "auto" else title, None)
+    return ax

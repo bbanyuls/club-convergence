@@ -25,6 +25,7 @@ All notable changes to this project are documented here. The format follows
 - `sort_fraction` (Stata's `fr()`), and `ref_col`/`data_cols` ([#1](https://github.com/bbanyuls/club-convergence/pull/1), [#21](https://github.com/bbanyuls/club-convergence/pull/21)).
 
 ### Robustness
+- `rolling_clubs`: clubs in rolling windows, with transitions between windows, the units that leave their club mates (`movers()`), an alluvial plot of the flows and a plotly Sankey; `--rolling` in the command line.
 - `n_jobs=` for `sensitivity`, `bootstrap`, `pairwise_convergence` and `report` (`--jobs` in the command line). Results do not depend on it. The ADF lag search uses one QR decomposition instead of a regression per lag, 3.5 times faster with identical results.
 - `sensitivity()`: grids over trimming, HAC method, `c*`, merging and sorting, with co-membership, adjusted Rand index and stability ([#1](https://github.com/bbanyuls/club-convergence/pull/1)).
 - `bootstrap()`: confidence in memberships by resampling units, HP cycles or end periods ([#12](https://github.com/bbanyuls/club-convergence/pull/12)).

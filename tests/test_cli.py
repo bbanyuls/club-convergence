@@ -254,3 +254,13 @@ def test_latex_option(tmp_path):
     cc.load_filtered_gdp().to_csv(csv)
     assert main([str(csv), "--merge", "PS", "--latex", str(tex)]) == 0
     assert r"\begin{longtable}" in tex.read_text(encoding="utf-8")
+
+
+def test_rolling_option(tmp_path, capsys):
+    csv, figure = tmp_path / "gdp.csv", tmp_path / "rolling.png"
+    cc.load_gdp().to_csv(csv)
+    args = [str(csv), "--log", "--hp-filter", "--merge", "PS", "--rolling", "20"]
+    assert main([*args, "--rolling-step", "7", "--rolling-plot", str(figure)]) == 0
+    out = capsys.readouterr().out
+    assert "clubs in rolling windows of 20 periods" in out and "1984–2003" in out
+    assert "left their club mates" in out and figure.stat().st_size > 0
