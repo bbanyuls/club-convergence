@@ -51,8 +51,20 @@ exactly as Stata's `psecta, fr()` does: it averages the last T − int((1 − fr
 This makes the ordering less sensitive to a single year.
 `data_cols=` restricts which columns are used.
 
-For a paper table that lists the members of each club, use `clubs.summary(members=True)`.
-You can then export it with `.to_latex()` or `.to_csv()`.
+For a paper, `clubs.to_latex()` writes the usual table of clubs as LaTeX (booktabs): the size,
+the log t coefficient and t statistic, and the members of each club, with a row for divergent
+units and a note that states the settings. It needs no extra Python package; the document needs
+`\usepackage{booktabs,array,longtable}`.
+
+```python
+merged.to_latex(path="clubs.tex", label="tab:clubs")   # longtable when the lists are long
+merged.to_latex(members=False)                          # just N, beta and t
+cc.to_latex(beta.by_club(), header={"beta": r"$\hat\beta$"})   # any results table
+```
+
+Special characters in unit names are escaped ("St. Kitts \& Nevis"), negative numbers get a
+true minus sign, and the tests compile the tables with LaTeX. `summary(members=True)` gives the
+same information as a DataFrame, e.g. for `.to_csv()`. From the command line: `--latex clubs.tex`.
 
 To give the clubs meaningful names in every table, plot, chart, map and report, rename them
 after merging (merging numbers the clubs again):

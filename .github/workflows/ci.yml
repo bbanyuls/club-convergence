@@ -24,6 +24,9 @@ jobs:
       # for each Python. mypy checks the code as Python 3.10 (pyproject.toml).
       - if: matrix.python-version == '3.13'
         run: uv run mypy
+      # LaTeX engine for tests/test_latex.py, which compiles the generated tables.
+      - if: matrix.python-version == '3.13'
+        uses: wtfjoke/setup-tectonic@v4
       - if: matrix.python-version == '3.13'
         name: Validate CITATION.cff
         run: uv run --with cffconvert cffconvert --validate

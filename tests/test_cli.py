@@ -247,3 +247,10 @@ def test_jobs_option(tmp_path, capsys):
     assert main([*args, "--sensitivity"]) == 0
     out = capsys.readouterr().out
     assert "bootstrap (units, 4 replicates)" in out and "sensitivity (" in out
+
+
+def test_latex_option(tmp_path):
+    csv, tex = tmp_path / "f.csv", tmp_path / "clubs.tex"
+    cc.load_filtered_gdp().to_csv(csv)
+    assert main([str(csv), "--merge", "PS", "--latex", str(tex)]) == 0
+    assert r"\begin{longtable}" in tex.read_text(encoding="utf-8")

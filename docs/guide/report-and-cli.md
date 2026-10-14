@@ -48,6 +48,7 @@ The CSV file must have units in rows and periods in columns. For a long-format f
 - `--merge-divergent`, optionally with `--joint-divergent`;
 - `--fill-gaps 2` and `--drop-incomplete` for panels with missing values;
 - `--details`, which prints the members of every club;
+- `--latex clubs.tex`, which writes the clubs and their members as a LaTeX table;
 - `--summary out.csv --members`, which writes the summary table with the members of each club;
 - `--theme light | dark | print | journal` and `--dpi 300` for every saved figure and the report.
 
