@@ -57,6 +57,7 @@ All notable changes to this project are documented here. The format follows
 - `wide_panel()`, `describe_missing()`, `fill_gaps()` and `balance()` for real-world panels ([#1](https://github.com/bbanyuls/club-convergence/pull/1), [#12](https://github.com/bbanyuls/club-convergence/pull/12)).
 
 ### Documentation and quality
+- A feature tour notebook with every feature and its output, a guide to choosing the settings (with how much each one changes the clubs on the GDP data), a shorter README with a figure gallery and a table of what the package does, and an index of the docs. Both notebooks are committed with their outputs, so they read on GitHub; `scripts/run_notebooks.py` refreshes them and the tests run them.
 - Test coverage at 100% (4 lines excluded, each for a stated reason) and a 99% floor in CI. The command line runs every output and analysis through one error handler. The new tests found that `plot(clubs=[])` drew an empty figure instead of raising.
 - CI also runs the tests on the oldest versions `pyproject.toml` allows (numpy 1.23, pandas 1.5, matplotlib 3.7, plotly 5.15, geopandas 0.14.4). This showed the declared minimums were wrong: matplotlib must be ≥ 3.7 (legends placed outside the axes) and geopandas ≥ 0.14.4 (0.14.0 breaks with current fiona).
 - Tutorial notebook, executed by the test suite ([#28](https://github.com/bbanyuls/club-convergence/pull/28)).

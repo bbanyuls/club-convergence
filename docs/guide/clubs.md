@@ -4,6 +4,9 @@ How to prepare data, which options change the clubs, and how the R and Stata imp
 
 [← Back to the README](../../README.md)
 
+Which values to choose for these options, and how much each matters, is in
+[Choosing the settings](choosing-settings.md).
+
 ## Bundled datasets
 
 | Loader | Data |
