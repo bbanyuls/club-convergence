@@ -195,6 +195,13 @@ def build_parser() -> argparse.ArgumentParser:
         "endpoint: drop the last periods",
     )
     robust.add_argument("--seed", type=int, help="random seed for --bootstrap")
+    robust.add_argument(
+        "--jobs",
+        type=int,
+        default=1,
+        metavar="N",
+        help="processes for --sensitivity, --bootstrap, --pairwise and --report (-1: all CPUs)",
+    )
 
     classic = parser.add_argument_group("classical convergence")
     classic.add_argument(
@@ -348,6 +355,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 seed=args.seed if args.seed is not None else 0,
                 title=f"Convergence analysis of {args.csv.name}",
                 theme=args.theme,
+                n_jobs=args.jobs,
                 **({"dpi": args.dpi} if args.dpi else {}),
                 club_names=[name.strip() for name in args.club_names.split(";")]
                 if args.club_names
@@ -415,7 +423,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 1
     if args.pairwise:
         try:
-            pw = pairwise_convergence(raw, log=not args.log, clubs=result, kpss=True)
+            pw = pairwise_convergence(
+                raw, log=not args.log, clubs=result, kpss=True, n_jobs=args.jobs
+            )
             print(f"\npairwise convergence (Pesaran, 2007): ADF and KPSS on {len(pw.pairs)} gaps\n")
             print(pw.summary().to_string(float_format=lambda v: f"{v:.3f}"))
         except (OSError, ValueError, TypeError, KeyError) as exc:
@@ -446,6 +456,7 @@ def _report_sensitivity(args: argparse.Namespace, data: pd.DataFrame, options: d
         sort_fraction=[args.sort_fraction],
         merge_divergent=args.merge_divergent,
         merge_options=args.merge_options,
+        n_jobs=args.jobs,
         **options,
     )
     table = runs.table().drop(columns=["cstar", "merge", "sort_fraction"])
@@ -526,6 +537,7 @@ def _report_bootstrap(args: argparse.Namespace, raw: pd.DataFrame, options: dict
         merge_divergent=args.merge_divergent,
         merge_options=args.merge_options,
         seed=args.seed,
+        n_jobs=args.jobs,
         time_trim=args.time_trim,
         hac_method=args.hac,
         cstar=args.cstar,

@@ -225,6 +225,7 @@ def report(
     theme: str | Theme | None = None,
     dark_mode: bool | str | Theme = True,
     dpi: int = 110,
+    n_jobs: int | None = 1,
     **find_kwargs,
 ) -> Report:
     """Run the standard convergence analysis and collect it in a :class:`Report`.
@@ -257,6 +258,8 @@ def report(
     dark_mode
         Also embed dark-theme figures, shown when the reader's system uses a
         dark colour scheme; a theme (or its name) replaces the built-in dark one.
+    n_jobs
+        Processes for the sensitivity grid and the bootstrap (``-1``: all CPUs).
     """
     import matplotlib
 
@@ -422,6 +425,7 @@ def report(
             merge=[merge],
             sort_fraction=[sort_fraction],
             convention=convention,
+            n_jobs=n_jobs,
             **find_kwargs,
         )
         table = runs.table().drop(columns=["cstar", "merge", "sort_fraction"])
@@ -438,6 +442,7 @@ def report(
             clustered,
             bootstrap,
             seed=seed,
+            n_jobs=n_jobs,
             merge=merge,
             convention=convention,
             time_trim=trim,
