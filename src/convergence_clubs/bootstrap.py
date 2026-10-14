@@ -8,7 +8,9 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
+from ._parallel import parallel_map
 from .filters import hp_filter
+from .results import ConvergenceClubs
 from .sensitivity import SensitivityResult, _post_process, _quiet_find_clubs
 
 BootstrapMethod = Literal["units", "cycle", "endpoint"]
@@ -28,6 +30,7 @@ def bootstrap(
     merge_divergent: bool = False,
     merge_options: dict | None = None,
     seed: int | np.random.Generator | None = None,
+    n_jobs: int | None = 1,
     **find_kwargs,
 ) -> SensitivityResult:
     """Re-run the clustering on perturbed versions of the data.
@@ -61,6 +64,9 @@ def bootstrap(
         every replicate, as in :func:`sensitivity`.
     seed
         Seed or generator, for reproducible replicates.
+    n_jobs
+        Processes to run the replicates in (``-1``: all CPUs). The random
+        draws are made up front, so the result is the same for any value.
     **find_kwargs
         Passed to :func:`find_clubs` (``time_trim``, ``hac_method``, ...).
 
@@ -78,20 +84,15 @@ def bootstrap(
     if not 0 < fraction <= 1:
         raise ValueError("fraction must be in (0, 1]")
     rng = np.random.default_rng(seed)
-
-    def cluster(frame: pd.DataFrame):
-        if filter_lambda is not None:
-            frame = hp_filter(frame, lamb=filter_lambda)
-        result = _quiet_find_clubs(frame, **find_kwargs)
-        return _post_process(result, merge, merge_divergent, merge_options)
-
-    runs = [({"method": method, "replicate": 0}, cluster(data))]
+    # Replicates are built here, with all the random draws, and only clustered
+    # in the workers: the result does not depend on n_jobs.
+    replicates: list[tuple[dict, pd.DataFrame]] = [({"method": method, "replicate": 0}, data)]
 
     if method == "units":
         size = max(2, round(fraction * len(data)))
         for i in range(1, n + 1):
             rows = np.sort(rng.choice(len(data), size=size, replace=False))
-            runs.append(({"method": method, "replicate": i}, cluster(data.iloc[rows])))
+            replicates.append(({"method": method, "replicate": i}, data.iloc[rows]))
 
     elif method == "cycle":
         assert filter_lambda is not None  # checked above
@@ -106,13 +107,24 @@ def bootstrap(
             starts = rng.integers(0, n_t - length + 1, size=math.ceil(n_t / length))
             periods = np.concatenate([np.arange(s, s + length) for s in starts])[:n_t]
             frame = pd.DataFrame(trend + cycle[:, periods], index=data.index, columns=data.columns)
-            runs.append(({"method": method, "replicate": i}, cluster(frame)))
+            replicates.append(({"method": method, "replicate": i}, frame))
 
     else:  # endpoint
         if not 1 <= max_drop < data.shape[1] - 1:
             raise ValueError("max_drop must be between 1 and the number of periods - 2")
         for k in range(1, max_drop + 1):
             frame = data.iloc[:, : data.shape[1] - k]
-            runs.append(({"method": method, "replicate": k, "dropped_periods": k}, cluster(frame)))
+            replicates.append(({"method": method, "replicate": k, "dropped_periods": k}, frame))
 
-    return SensitivityResult(tuple(runs))
+    settings = (filter_lambda, merge, merge_divergent, merge_options, find_kwargs)
+    results = parallel_map(_cluster, [(frame, settings) for _, frame in replicates], n_jobs)
+    return SensitivityResult(tuple(zip([m for m, _ in replicates], results, strict=True)))
+
+
+def _cluster(task: tuple[pd.DataFrame, tuple]) -> ConvergenceClubs:
+    """Cluster one replicate; a worker of :func:`bootstrap`."""
+    frame, (filter_lambda, merge, merge_divergent, merge_options, find_kwargs) = task
+    if filter_lambda is not None:
+        frame = hp_filter(frame, lamb=filter_lambda)
+    result = _quiet_find_clubs(frame, **find_kwargs)
+    return _post_process(result, merge, merge_divergent, merge_options)

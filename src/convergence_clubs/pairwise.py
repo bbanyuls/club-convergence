@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 import numpy as np
 import pandas as pd
 
+from ._parallel import n_workers, parallel_map
+
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
@@ -81,6 +83,26 @@ def _fit(y: np.ndarray, X: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
     return coef, resid, float(resid @ resid)
 
 
+def _nested_ssr(y: np.ndarray, X: np.ndarray, first: int) -> list[float]:
+    """Residual sums of squares of y on X[:, :first], X[:, :first + 1], ..., X.
+
+    The candidate lag regressions are nested, so one QR decomposition gives
+    them all: with X = QR, regressing on the first p columns leaves
+    ssr(X) + sum_{j >= p} (Q'y)_j^2. That is one factorisation per series
+    instead of one least-squares fit per lag. Falls back to separate fits
+    when X is (nearly) rank deficient, where QR and lstsq can disagree.
+    """
+    q, r = np.linalg.qr(X)
+    diag = np.abs(np.diag(r))
+    if diag.min() <= 1e-10 * diag.max():
+        return [_fit(y, X[:, :p])[2] for p in range(first, X.shape[1] + 1)]
+    qty = q.T @ y
+    resid = y - q @ qty
+    ssr_full = float(resid @ resid)
+    tail = np.concatenate([np.cumsum((qty**2)[::-1])[::-1], [0.0]])
+    return [ssr_full + float(tail[p]) for p in range(first, X.shape[1] + 1)]
+
+
 def adf_test(
     x: np.ndarray | pd.Series,
     *,
@@ -112,9 +134,10 @@ def adf_test(
     if autolag is not None:
         y, X = _design(x, max_lag, max_lag, regression)
         nobs = y.size
+        ssrs = _nested_ssr(y, X, n_trend + 1)
         best = None
         for k in range(max_lag + 1):
-            _, _, ssr = _fit(y, X[:, : n_trend + 1 + k])
+            ssr = ssrs[k]
             llf = -nobs / 2 * (math.log(2 * math.pi) + math.log(ssr / nobs) + 1)
             n_params = n_trend + 1 + k
             penalty = 2 * n_params if autolag == "AIC" else math.log(nobs) * n_params
@@ -304,6 +327,23 @@ class PairwiseResult:
         )
 
 
+def _test_pairs(task: tuple[np.ndarray, list[tuple[int, int]], dict[str, Any]]) -> list[tuple]:
+    """ADF (and KPSS) statistics for a chunk of pairs; a worker of :func:`pairwise_convergence`."""
+    values, pairs, options = task
+    rows = []
+    for i, j in pairs:
+        gap = values[i] - values[j]
+        test = adf_test(gap, regression=options["regression"], max_lag=options["max_lag"],
+                        autolag=options["autolag"])  # fmt: skip
+        row: tuple = (test.stat, test.p_value, test.lags, test.nobs)
+        if options["kpss"]:
+            stationarity = kpss_test(gap, regression=options["regression"],
+                                     nlags=options["kpss_nlags"])  # fmt: skip
+            row += (stationarity.stat, stationarity.p_value)
+        rows.append(row)
+    return rows
+
+
 def pairwise_convergence(
     data: pd.DataFrame,
     *,
@@ -315,6 +355,7 @@ def pairwise_convergence(
     autolag: AutoLag | str | None = "AIC",
     kpss: bool = False,
     kpss_nlags: int | Literal["auto", "legacy"] = "auto",
+    n_jobs: int | None = 1,
 ) -> PairwiseResult:
     """Pesaran's (2007) pairwise test: ADF tests on every gap ``y_it - y_jt``.
 
@@ -337,6 +378,10 @@ def pairwise_convergence(
         as Pesaran (2007) does. A pair is then strong evidence of convergence
         when the ADF test rejects the unit root *and* KPSS does not reject
         stationarity (``summary()`` reports that share).
+    n_jobs
+        Processes to test the pairs in (``-1``: all CPUs). The number of
+        pairs grows with the square of the number of units, so this helps
+        with hundreds of regions; the results do not depend on it.
     """
     from .beta import _club_labels
 
@@ -350,17 +395,17 @@ def pairwise_convergence(
             raise ValueError("log=True needs positive values; pass logs with log=False")
         values = np.log(values)
     units = data.index
-    rows = []
-    for i, j in combinations(range(len(units)), 2):
-        test = adf_test(values[i] - values[j], regression=regression, max_lag=max_lag,
-                        autolag=autolag)  # fmt: skip
-        row = [units[i], units[j], test.stat, test.p_value, test.lags, test.nobs]
-        if kpss:
-            stationarity = kpss_test(values[i] - values[j], regression=regression, nlags=kpss_nlags)
-            row += [stationarity.stat, stationarity.p_value]
-        rows.append(tuple(row))
-    columns = ["unit_i", "unit_j", "adf_stat", "p_value", "lags", "nobs"]
-    pairs = pd.DataFrame(rows, columns=columns + (["kpss_stat", "kpss_p"] if kpss else []))
+    index = list(combinations(range(len(units)), 2))
+    # About four chunks per process balances the load without much pickling.
+    size = max(1, math.ceil(len(index) / (4 * n_workers(n_jobs))))
+    options = {"regression": regression, "max_lag": max_lag, "autolag": autolag}
+    options |= {"kpss": kpss, "kpss_nlags": kpss_nlags}
+    tasks = [(values, index[k : k + size], options) for k in range(0, len(index), size)]
+    rows = [row for chunk in parallel_map(_test_pairs, tasks, n_jobs) for row in chunk]
+    columns = ["adf_stat", "p_value", "lags", "nobs"] + (["kpss_stat", "kpss_p"] if kpss else [])
+    pairs = pd.DataFrame(rows, columns=columns)
+    pairs.insert(0, "unit_i", units[[i for i, _ in index]])
+    pairs.insert(1, "unit_j", units[[j for _, j in index]])
     pairs["reject"] = pairs["p_value"] < alpha
     if kpss:
         pairs["kpss_reject"] = pairs["kpss_p"] < alpha

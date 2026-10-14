@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from ._parallel import parallel_map
 from .clustering import ClubConvergenceWarning, find_clubs
 
 if TYPE_CHECKING:
@@ -222,6 +223,7 @@ def sensitivity(
     sort_fraction: Sequence[float] = (0.0,),
     merge_divergent: bool = False,
     merge_options: Mapping[str, Any] | None = None,
+    n_jobs: int | None = 1,
     **find_kwargs,
 ) -> SensitivityResult:
     """Run the clustering for every combination of settings.
@@ -233,6 +235,7 @@ def sensitivity(
     :func:`find_clubs` unchanged. With ``merge_divergent=True`` divergent
     units are assigned to clubs in every run (after merging, if any);
     ``merge_options`` are passed to :func:`merge_clubs` (e.g. ``iterate``).
+    ``n_jobs`` runs the grid in several processes (``-1``: all CPUs).
 
     Examples
     --------
@@ -250,21 +253,24 @@ def sensitivity(
     }
     if any(len(v) == 0 for v in grid.values()):
         raise ValueError("every setting needs at least one value")
-    runs = []
-    for values in itertools.product(*grid.values()):
-        params = dict(zip(grid, values, strict=True))
-        result = _quiet_find_clubs(
-            data,
-            time_trim=params["time_trim"],
-            hac_method=params["hac_method"],
-            cstar=params["cstar"],
-            sort_fraction=params["sort_fraction"],
-            **find_kwargs,
-        )
-        runs.append(
-            (params, _post_process(result, params["merge"], merge_divergent, merge_options))
-        )
-    return SensitivityResult(tuple(runs))
+    combos = [dict(zip(grid, values, strict=True)) for values in itertools.product(*grid.values())]
+    settings = (merge_divergent, merge_options, find_kwargs)
+    results = parallel_map(_run, [(data, params, settings) for params in combos], n_jobs)
+    return SensitivityResult(tuple(zip(combos, results, strict=True)))
+
+
+def _run(task: tuple[pd.DataFrame, dict[str, Any], tuple]) -> ConvergenceClubs:
+    """One run of the grid; a worker of :func:`sensitivity`."""
+    data, params, (merge_divergent, merge_options, find_kwargs) = task
+    result = _quiet_find_clubs(
+        data,
+        time_trim=params["time_trim"],
+        hac_method=params["hac_method"],
+        cstar=params["cstar"],
+        sort_fraction=params["sort_fraction"],
+        **find_kwargs,
+    )
+    return _post_process(result, params["merge"], merge_divergent, merge_options)
 
 
 def _quiet_find_clubs(data: pd.DataFrame, **kwargs) -> ConvergenceClubs:

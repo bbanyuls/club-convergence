@@ -238,3 +238,12 @@ def test_club_names_option(tmp_path, capsys):
     capsys.readouterr()
     assert main([*args, "--club-names", "A; B"]) == 1
     assert "got 2 names for 6 clubs" in capsys.readouterr().err
+
+
+def test_jobs_option(tmp_path, capsys):
+    csv = tmp_path / "gdp.csv"
+    cc.load_gdp().iloc[:30].to_csv(csv)
+    args = [str(csv), "--log", "--hp-filter", "--bootstrap", "4", "--seed", "1", "--jobs", "2"]
+    assert main([*args, "--sensitivity"]) == 0
+    out = capsys.readouterr().out
+    assert "bootstrap (units, 4 replicates)" in out and "sensitivity (" in out

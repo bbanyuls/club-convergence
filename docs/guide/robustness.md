@@ -59,6 +59,27 @@ raw = np.log(cc.load_gdp())
 cc.bootstrap(raw, 200, method="cycle", filter_lambda=400, merge="PS", seed=0)
 ```
 
+### Large panels
+
+`sensitivity()`, `bootstrap()`, `pairwise_convergence()` and `report()` take `n_jobs=` to run
+in several processes (`-1` uses every CPU, `-2` all but one; the default `1` runs serially).
+All random draws are made before the work is split, so the result is the same for any
+`n_jobs`; the tests check this. In the command line, use `--jobs N`.
+
+Measured on a 12-core laptop with a synthetic panel of 1,000 units and 40 periods:
+
+| Call | `n_jobs=1` | `n_jobs=-1` |
+|---|---|---|
+| `bootstrap(data, 100)` | 5.5 s | 1.0 s |
+| `sensitivity(data)` (8 runs) | 1.3 s | 0.6 s |
+| `pairwise_convergence` on 400 units (79,800 pairs) | 3.7 s | 0.9 s |
+
+The pairwise test grows with the square of the number of units, so it matters most there.
+Each ADF test chooses its lag from up to 13 nested regressions; one QR decomposition gives all
+of them, which made the test 3.5 times faster than fitting each regression (14 s → 3.7 s on
+the 400 units above). The results do not change: they match statsmodels' `adfuller` on 2,000
+GDP gaps.
+
 ![Membership confidence across 200 bootstrap resamples](../stability.png)
 
 On the GDP data, Somalia, Burkina Faso and Vanuatu are among the 8 least confident units

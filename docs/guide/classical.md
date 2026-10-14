@@ -101,6 +101,7 @@ which gives an independent check on the clustering.
 
 ```python
 pw = cc.pairwise_convergence(gdp, clubs=merged)   # levels; log=False if already in logs
+                                                  # n_jobs=-1 for hundreds of units
 pw.summary()     # share rejected: all pairs, within clubs, between clubs, vs alpha
 pw.by_club()     # share rejected inside each club
 pw.matrix()      # p-values as a units x units table
