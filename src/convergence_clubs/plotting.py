@@ -1337,10 +1337,10 @@ def plot_transition_paths(
     """
     if kind not in ("both", "clubs", "average"):
         raise ValueError("kind must be 'both', 'clubs' or 'average'")
-    if not result.clubs:
-        raise ValueError("there are no clubs to plot")
     th = _theme(theme)
     selected = _select(result, clubs)
+    if not selected:  # no clubs at all, or an empty selection
+        raise ValueError("there are no clubs to plot")
     club_panels = selected if kind in ("both", "clubs") else []
     with_average = kind in ("both", "average")
     n_panels = len(club_panels) + with_average

@@ -68,5 +68,5 @@ source = ["convergence_clubs"]
 omit = ["*/__main__.py"]
 
 [tool.coverage.report]
-fail_under = 95
+fail_under = 99
 show_missing = true
