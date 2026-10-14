@@ -28,3 +28,18 @@ jobs:
         name: Validate CITATION.cff
         run: uv run --with cffconvert cffconvert --validate
       - run: uv run pytest --cov --cov-report=term
+
+  # The oldest versions pyproject.toml allows: catches code (or tests) that
+  # quietly rely on a newer numpy, pandas, matplotlib or geopandas.
+  minimum-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.10"
+      - run: uv venv
+      - run: uv pip install --resolution lowest-direct -e . --group test
+      - name: Installed versions
+        run: uv pip list | grep -iE "^(numpy|pandas|matplotlib|geopandas|plotly) "
+      - run: .venv/bin/python -m pytest
