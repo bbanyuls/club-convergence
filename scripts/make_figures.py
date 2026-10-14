@@ -98,6 +98,11 @@ def main() -> None:
     )
     save(cc.club_determinants(lp_clubs, covariates).plot().figure, "determinants.png")
 
+    rolling = cc.rolling_clubs(np.log(gdp), window=20, step=7, filter_lambda=400)
+    ax = rolling.plot()
+    ax.figure.set_size_inches(8.5, 4.8)
+    save(ax.figure, "rolling.png")
+
     pairwise = cc.pairwise_convergence(gdp, clubs=merged)
     save(pairwise.plot().figure, "pairwise.png")
 

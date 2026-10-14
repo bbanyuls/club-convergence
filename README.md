@@ -75,7 +75,7 @@ In Jupyter, results display as tables.
 | Prepare the data | `wide_panel` (long → wide), `describe_missing`, `fill_gaps`, `balance`, `hp_filter`; two bundled panels: `load_gdp`, `load_productivity` |
 | Test convergence | `log_t_test`, `cross_sectional_variation`, `relative_transition` |
 | Find clubs | `find_clubs` (fixed or incremental `c*`, R or Stata `convention`), `.merge("PS" \| "vLT")`, `.merge_divergent()`, `.rename(...)` |
-| Check them | `sensitivity` (grid of settings), `bootstrap` (units, business cycles or end of sample), `compare_clubs`, `adjusted_rand_index`; `n_jobs=-1` for large panels |
+| Check them | `sensitivity` (grid of settings), `bootstrap` (units, business cycles or end of sample), `rolling_clubs` (clubs over time), `compare_clubs`, `adjusted_rand_index`; `n_jobs=-1` for large panels |
 | Classical convergence | `beta_convergence`, `sigma_convergence`, `distribution_dynamics`, `pairwise_convergence` (ADF + KPSS) |
 | Explain membership | `club_determinants` (ordered logit or probit) |
 | Show the results | `.plot()` and 15 more plots, 4 themes (`light`, `dark`, `print`, `journal`) and your own, interactive charts, maps |
@@ -89,7 +89,7 @@ In Jupyter, results display as tables.
 | [**Tutorial**](docs/tutorial.ipynb) | A complete analysis, explaining how to read each result |
 | [Choosing the settings](docs/guide/choosing-settings.md) | HP filter, `time_trim`, `c*`, HAC errors, merging, R or Stata, and how much each matters |
 | [Finding clubs](docs/guide/clubs.md) | Bundled data, input and missing values, sorting, failing clubs, renaming, R and Stata conventions |
-| [Robustness](docs/guide/robustness.md) | Sensitivity analysis, bootstrap confidence, large panels |
+| [Robustness](docs/guide/robustness.md) | Sensitivity analysis, bootstrap confidence, clubs over time, large panels |
 | [β, σ, dynamics, pairwise tests and determinants](docs/guide/classical.md) | The classical measures and the ordered logit of club membership |
 | [Plots and maps](docs/guide/plots.md) | Every plot, themes and style, colours, interactive charts, maps |
 | [Report and command line](docs/guide/report-and-cli.md) | The HTML report ([example](docs/report-example.html)) and every CLI option |

@@ -56,6 +56,7 @@ from .plotting import (
     plot_dynamics,
     plot_log_t,
     plot_pairwise,
+    plot_rolling,
     plot_sigma,
     plot_stability,
     plot_transition_paths,
@@ -66,6 +67,7 @@ from .plotting import (
 )
 from .report import Report, report
 from .results import Club, ConvergenceClubs
+from .rolling import RollingClubs, rolling_clubs
 from .sensitivity import (
     SensitivityResult,
     adjusted_rand_index,
@@ -93,6 +95,7 @@ __all__ = [
     "LogTResult",
     "PairwiseResult",
     "Report",
+    "RollingClubs",
     "SensitivityResult",
     "SigmaResult",
     "Theme",
@@ -134,6 +137,7 @@ __all__ = [
     "plot_dynamics",
     "plot_log_t",
     "plot_pairwise",
+    "plot_rolling",
     "plot_map",
     "plot_sigma",
     "plot_stability",
@@ -143,6 +147,7 @@ __all__ = [
     "register_theme",
     "relative_transition",
     "report",
+    "rolling_clubs",
     "sensitivity",
     "set_theme",
     "sigma_convergence",

@@ -24,6 +24,7 @@ from .pairwise import pairwise_convergence
 from .panel import balance, fill_gaps, wide_panel
 from .plotting import THEMES
 from .report import report
+from .rolling import rolling_clubs
 from .sensitivity import sensitivity
 from .sigma import sigma_convergence
 
@@ -199,6 +200,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     robust.add_argument("--seed", type=int, help="random seed for --bootstrap")
     robust.add_argument(
+        "--rolling", type=int, metavar="WINDOW", help="clubs in rolling windows of WINDOW periods"
+    )
+    robust.add_argument(
+        "--rolling-step", type=int, metavar="N", help="periods between windows (default WINDOW/2)"
+    )
+    robust.add_argument(
+        "--rolling-plot", type=Path, metavar="FILE", help="save the flows between windows"
+    )
+    robust.add_argument(
         "--jobs",
         type=int,
         default=1,
@@ -357,6 +367,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             lambda: _report_dynamics(args, raw, result),
         ),
         (args.bootstrap, "bootstrap", lambda: _report_bootstrap(args, raw, options)),
+        (args.rolling, "rolling windows", lambda: _report_rolling(args, raw, options)),
     ]
     for wanted, label, action in steps:
         if wanted and not _step(label, action):
@@ -556,6 +567,33 @@ def _report_bootstrap(args: argparse.Namespace, raw: pd.DataFrame, options: dict
     print(f"\n{_plural(len(uncertain), 'unit')} with confidence below 0.8\n")
     if len(uncertain):
         print(uncertain.head(20).to_string(float_format=lambda v: f"{v:.2f}"))
+
+
+def _report_rolling(args: argparse.Namespace, raw: pd.DataFrame, options: dict) -> None:
+    rolled = rolling_clubs(
+        raw,
+        args.rolling,
+        step=args.rolling_step,
+        filter_lambda=args.hp_filter,
+        merge=args.merge,
+        merge_divergent=args.merge_divergent,
+        merge_options=args.merge_options,
+        n_jobs=args.jobs,
+        time_trim=args.time_trim,
+        hac_method=args.hac,
+        cstar=args.cstar,
+        sort_fraction=args.sort_fraction,
+        **options,
+    )
+    print(f"\nclubs in rolling windows of {args.rolling} periods\n")
+    print(rolled.summary().to_string(float_format=lambda v: f"{v:.3f}"))
+    movers = rolled.movers()
+    print(f"\n{_plural(len(movers), 'unit')} left their club mates between windows")
+    if len(movers):
+        print(movers["direction"].value_counts().to_string())
+    if args.rolling_plot:
+        _use_agg()
+        _figure(rolled.plot(theme=args.theme)).savefig(args.rolling_plot, dpi=args.dpi or 150)
 
 
 def _unique(values: list) -> list:

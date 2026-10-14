@@ -59,6 +59,37 @@ raw = np.log(cc.load_gdp())
 cc.bootstrap(raw, 200, method="cycle", filter_lambda=400, merge="PS", seed=0)
 ```
 
+## Clubs over time
+
+Are the clubs stable, or do countries move between them? `rolling_clubs` runs the clustering
+in windows of `window` periods, `step` periods apart (by default half a window; the last
+window always ends with the last period). With `filter_lambda`, the unfiltered logs are
+HP-filtered within each window, so no window sees later data through the filter.
+
+```python
+rolled = cc.rolling_clubs(np.log(gdp), window=20, step=7, filter_lambda=400)   # merge="PS"
+rolled.summary()        # clubs per window and agreement (ARI) with the previous window
+rolled.transitions()    # units in each club of the first window (rows) and the last (columns)
+rolled.movers()         # units that left their club mates, and in which direction
+rolled.plot()           # flows between windows, below; rolled.plot_interactive() as a Sankey
+```
+
+Club numbers are a rank within each window: with more clubs in a later window everyone gets a
+higher number, so they cannot be compared directly. `movers()` therefore compares each country
+with its own club mates: if most of them go to club c and the country goes elsewhere, it moved,
+`"up"` if its new club is above c and `"down"` if below. On the GDP data, Brazil, Hungary and
+Panama fall behind their club mates of 1970–1989, while Argentina moves ahead of its own.
+
+![Flows of countries between the clubs of three 20-year windows](../rolling.png)
+
+Each bar is a club, highest on top; band widths are the number of countries going from one
+club to the next. Club 1 of 1970–1989 (58 countries) keeps 41 of them in club 1 of 1984–2003,
+while the 53 countries of the second club of 1970–1989 spread over six clubs. With 20-year
+windows and `time_trim=1/3` the log t regression uses only the last 13 periods of each window, so
+read single movements with care.
+
+From the command line: `--rolling 20 --rolling-step 7 --rolling-plot rolling.png`.
+
 ### Large panels
 
 `sensitivity()`, `bootstrap()`, `pairwise_convergence()` and `report()` take `n_jobs=` to run
