@@ -122,8 +122,8 @@ class ConvergenceClubs:
     def summary(self, members: bool = False) -> pd.DataFrame:
         """One row per club: size, log t regression results and ``c*`` or merged clubs.
 
-        With ``members=True`` a column lists the units of each club, which
-        makes a ready-to-publish table (e.g. ``summary(members=True).to_latex()``).
+        With ``members=True`` a column lists the units of each club; for a
+        ready-to-publish LaTeX table use :meth:`to_latex`.
         """
         rows = []
         for club in self.clubs:
@@ -144,6 +144,17 @@ class ConvergenceClubs:
                 row["members"] = "; ".join(map(str, self.units(club.name)))
             rows.append(row)
         return pd.DataFrame(rows, index=pd.Index([c.name for c in self.clubs], name="club"))
+
+    def to_latex(self, **kwargs) -> str:
+        """The clubs as a booktabs LaTeX table: size, log t coefficient, t and members.
+
+        Divergent units get a row of their own and a note states the
+        settings. See :func:`convergence_clubs.latex.clubs_table` for the
+        options (``members``, ``caption``, ``label``, ``longtable``, ``path``).
+        """
+        from .latex import clubs_table
+
+        return clubs_table(self, **kwargs)
 
     # -- transformations ----------------------------------------------------
 

@@ -47,6 +47,7 @@ All notable changes to this project are documented here. The format follows
   - `pairwise.plot()` shows the share of stationary gaps within and between clubs (`club_matrix()`) on a fixed 0–100% scale;
   - H(t) of clubs with one or two units is drawn thinner, and `plot_log_t(show_discarded=True)` shows the periods left out.
 - Fix: `plot_log_t` now uses the rounding of the convention, so with `convention="Stata"` it reports the club's own t statistic.
+- LaTeX tables without extra dependencies: `ConvergenceClubs.to_latex()` (clubs, β, t and members, with divergent units and a note on the settings; `longtable` for long lists) and `cc.to_latex()` for any results table; `--latex` in the command line. The tests compile them.
 - Interactive plotly charts ([#17](https://github.com/bbanyuls/club-convergence/pull/17)) and maps of club membership ([#20](https://github.com/bbanyuls/club-convergence/pull/20)).
 - `report()`: a self-contained HTML replication appendix ([#23](https://github.com/bbanyuls/club-convergence/pull/23)).
 - Command-line tool `convergence-clubs`, covering every analysis.

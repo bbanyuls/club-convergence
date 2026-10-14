@@ -16,6 +16,7 @@ from .datasets import (
 from .determinants import DeterminantsResult, club_determinants
 from .dynamics import DynamicsResult, distribution_dynamics
 from .filters import hp_filter
+from .latex import to_latex
 from .logt import (
     CRITICAL_VALUE,
     LogTResult,
@@ -145,6 +146,7 @@ __all__ = [
     "sensitivity",
     "set_theme",
     "sigma_convergence",
+    "to_latex",
     "theme_context",
     "wide_panel",
 ]

@@ -141,6 +141,9 @@ def build_parser() -> argparse.ArgumentParser:
     out = parser.add_argument_group("output")
     out.add_argument("--memberships", type=Path, metavar="CSV", help="write unit -> club")
     out.add_argument("--summary", type=Path, metavar="CSV", help="write the club summary")
+    out.add_argument(
+        "--latex", type=Path, metavar="TEX", help="write the clubs and members as a LaTeX table"
+    )
     out.add_argument("--plot", type=Path, metavar="FILE", help="save transition paths figure")
     out.add_argument(
         "--theme", choices=sorted(THEMES), default="light", help="theme of all figures"
@@ -333,11 +336,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         result.summary(members=args.members).to_csv(args.summary)
     # Each requested output or analysis is one step; the first that fails stops
     # the run with its error (exit status 1).
-    steps: list[tuple[Any, str, Callable[[], None]]] = [
+    steps: list[tuple[Any, str, Callable[[], object]]] = [
         (args.html, "interactive chart", lambda: _write_html(args, result)),
         (args.report, "report", lambda: _write_report(args, raw)),
         (args.map, "map", lambda: _write_map(args, result)),
         (args.plot, "plot", lambda: _write_plot(args, result)),
+        (args.latex, "LaTeX table", lambda: result.to_latex(path=args.latex)),
         (
             args.sensitivity or args.sensitivity_plot,
             "sensitivity analysis",
@@ -363,7 +367,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 _ERRORS = (ImportError, OSError, ValueError, TypeError, KeyError)
 
 
-def _step(label: str, action: Callable[[], None]) -> bool:
+def _step(label: str, action: Callable[[], object]) -> bool:
     """Run one step; on a user-facing error print it and return False."""
     try:
         action()
