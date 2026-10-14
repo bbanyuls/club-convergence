@@ -6,7 +6,13 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-DOCS = [ROOT / "README.md", ROOT / "CHANGELOG.md", *sorted((ROOT / "docs" / "guide").glob("*.md"))]
+DOCS = [
+    ROOT / "README.md",
+    ROOT / "CHANGELOG.md",
+    ROOT / "docs" / "README.md",
+    *sorted((ROOT / "docs" / "guide").glob("*.md")),
+]
+NOTEBOOKS = sorted((ROOT / "docs").glob("*.ipynb"))
 LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)\)")
 
 
@@ -36,6 +42,20 @@ def test_relative_links_resolve(doc):
         assert resolved.exists(), f"{doc.name}: broken link {target}"
         if anchor and resolved.suffix == ".md":
             assert anchor in _anchors(resolved), f"{doc.name}: missing anchor {target}"
+
+
+@pytest.mark.parametrize("notebook", NOTEBOOKS, ids=lambda p: p.name)
+def test_notebook_links_resolve(notebook):
+    import json
+
+    cells = json.loads(notebook.read_text(encoding="utf-8"))["cells"]
+    text = "\n".join("".join(c["source"]) for c in cells if c["cell_type"] == "markdown")
+    text = re.sub(r"```.*?```", "", text, flags=re.S)
+    links = [t for t in LINK.findall(text) if not re.match(r"[a-z]+:", t)]
+    assert links
+    for target in links:
+        file_part = target.partition("#")[0]
+        assert (notebook.parent / file_part).exists(), f"{notebook.name}: broken link {target}"
 
 
 def test_every_guide_is_linked_from_the_readme():
