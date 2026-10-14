@@ -264,3 +264,20 @@ def test_rolling_option(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "clubs in rolling windows of 20 periods" in out and "1984–2003" in out
     assert "left their club mates" in out and figure.stat().st_size > 0
+
+
+def test_spatial_option(tmp_path, capsys):
+    gpd = pytest.importorskip("geopandas")
+    from shapely.geometry import box
+
+    names = list(cc.load_filtered_gdp().index)
+    boxes = [box(i % 13, i // 13, i % 13 + 1, i // 13 + 1) for i in range(len(names))]
+    geo = tmp_path / "regions.gpkg"
+    gpd.GeoDataFrame({"name": names}, geometry=boxes, crs="EPSG:4326").to_file(geo)
+    csv = tmp_path / "f.csv"
+    cc.load_filtered_gdp().to_csv(csv)
+    args = [str(csv), "--spatial", "--geodata", str(geo), "--geo-key", "name", "--seed", "0"]
+    assert main(args) == 0
+    assert "spatial clustering of the clubs" in capsys.readouterr().out
+    assert main([str(csv), "--spatial"]) == 1
+    assert "--spatial needs --geodata" in capsys.readouterr().err

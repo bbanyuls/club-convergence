@@ -83,6 +83,10 @@ def main() -> None:
     ax.figure.set_size_inches(11, 5.6)
     save(ax.figure, "map.png")
 
+    nb = cc.neighbours(world, merged.data.index, key="ISO_A3_EH", names=cc.country_codes())
+    spatial = cc.spatial_clustering(merged, nb, seed=0)
+    save(spatial.plot().figure, "spatial.png")
+
     lp = cc.load_productivity("lp")
     lp_clubs = cc.find_clubs(cc.hp_filter(np.log(lp)), convention="Stata", time_trim=0.333).merge(
         "PS"
