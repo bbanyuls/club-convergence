@@ -50,17 +50,25 @@ def _layout(fig: go.Figure, th: Theme, title: str | None, **kwargs) -> go.Figure
         "tickfont": {"color": th.ink_secondary},
         "title": {"font": {"color": th.ink_secondary}},
     }
+    if th.frame == "box":
+        axis |= {"showline": True, "mirror": True, "ticks": "outside", "tickcolor": th.baseline}
+    if not th.gridlines:
+        axis["showgrid"] = False
+    anchor = {"left": (0.01, "left"), "center": (0.5, "center"), "right": (0.99, "right")}
+    title_x, title_anchor = anchor[th.title_loc]
     fig.update_layout(
         paper_bgcolor=th.surface,
         plot_bgcolor=th.surface,
         font={"family": "system-ui, -apple-system, Segoe UI, sans-serif", "color": th.ink},
-        title={"text": title, "x": 0.01, "xanchor": "left"} if title else None,
+        title={"text": title, "x": title_x, "xanchor": title_anchor} if title else None,
         legend={"font": {"color": th.ink_secondary}, "bgcolor": "rgba(0,0,0,0)"},
         hoverlabel={"bgcolor": th.surface, "font": {"color": th.ink}, "bordercolor": th.baseline},
         margin={"l": 60, "r": 20, "t": 60 if title else 30, "b": 50},
         **kwargs,
     )
-    fig.update_xaxes(showgrid=False, **{k: v for k, v in axis.items() if k != "gridcolor"})
+    fig.update_xaxes(
+        showgrid=False, **{k: v for k, v in axis.items() if k not in ("gridcolor", "showgrid")}
+    )
     fig.update_yaxes(**axis)
     return fig
 
@@ -150,7 +158,8 @@ def transition_paths_figure(
                 go.Scatter(
                     x=x, y=paths.mean(axis=0), mode="lines", name=html.escape(c.name),
                     legendgroup=c.name, showlegend=legend_once(c.name),
-                    line={"color": style["color"], "width": 2.5, "dash": _dash(style)},
+                    line={"color": style["color"], "width": 1.25 * th.line_width,
+                          "dash": _dash(style)},
                     hovertemplate=(
                         f"<b>{html.escape(c.name)}</b> average · {len(c)} units<br>"
                         f"β = {c.model.beta:.3f}, t = {c.model.t_value:.2f}<br>"
@@ -244,7 +253,7 @@ def beta_figure(
             go.Scatter(
                 x=part["log_initial"], y=part["growth"], mode="markers", name=html.escape(group),
                 legendgroup=group, text=[html.escape(str(u)) for u in part.index],
-                marker={"color": palette[group], "size": 9,
+                marker={"color": palette[group], "size": 1.6 * math.sqrt(th.marker_size),
                         "line": {"color": th.surface, "width": 1.5}},
                 hovertemplate=(
                     f"<b>%{{text}}</b> ({html.escape(group)})<br>"
@@ -259,7 +268,7 @@ def beta_figure(
                 go.Scatter(
                     x=x, y=_fitted_line(result, x, group), mode="lines", legendgroup=group,
                     showlegend=False, hoverinfo="skip",
-                    line={"color": palette[group], "width": 2},
+                    line={"color": palette[group], "width": th.line_width},
                 )
             )  # fmt: skip
     if not result.club_effects:
@@ -304,7 +313,7 @@ def sigma_figure(
         fig.add_trace(
             go.Scatter(
                 x=_x(series.index), y=series[group], mode="lines", name=html.escape(str(group)),
-                line={"color": color, "width": 2.5},
+                line={"color": color, "width": 1.25 * th.line_width},
                 hovertemplate=f"{html.escape(str(group))}: %{{y:.3f}}<extra></extra>",
             )
         )  # fmt: skip

@@ -104,7 +104,7 @@ in a warning rather than silently dropped. From the command line, use
   Each club keeps its color in every panel, even if you plot only some of the clubs.
   The default palette has 8 colors that stay distinguishable for color-blind readers.
   From the 9th club on, the colors repeat with dashed lines, so no hard-to-distinguish new colors are added.
-- **Themes.** `theme="light"`, `"dark"` or `"print"`, or your own `cc.Theme`, e.g.
+- **Themes.** `theme="light"`, `"dark"`, `"print"` or `"journal"`, or your own `cc.Theme`, e.g.
   `cc.LIGHT.with_colors([...])` or `cc.DARK.replace(font_size=11)`.
   - Each theme has three kinds of color, each for one job: `colors` for identity (one per club),
     `sequential` for magnitude (heatmaps; its first step almost matches the surface, so zero
@@ -113,6 +113,14 @@ in a warning rather than silently dropped. From the command line, use
     they look evenly spaced; up to seven pass the lightness-gap check in the light and dark themes.
   - `"print"` is black and white for journals: three grays, each drawn solid, dashed, dotted and dash-dotted, so twelve clubs stay distinguishable without color.
   - `Theme.linestyles` sets the line style of each round of colors (by default solid, then dashed).
+  - `"journal"` is the usual look of an economics journal: a box around each panel, outward
+    ticks, no gridlines and centered titles, on white.
+- **Style.** Every theme has fields that apply to all plots and interactive charts:
+  `line_width` (main data lines; unit paths, fits and muted clubs are drawn in proportion),
+  `marker_size` (scatter area, in points²), `gridlines`, `frame` (`"minimal"` or `"box"`) and
+  `title_loc` (`"left"`, `"center"`, `"right"`). For slides, for instance:
+  `cc.set_theme(cc.LIGHT.replace(line_width=3.2, marker_size=60, font_size=12))`.
+  Fonts follow matplotlib's own settings (`plt.rcParams["font.family"]`).
 - **Default theme.** Set it once instead of passing `theme=` to every plot:
 
   ```python
