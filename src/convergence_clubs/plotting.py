@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from .rolling import RollingClubs
     from .sensitivity import SensitivityResult
     from .sigma import SigmaResult
+    from .spatial import SpatialResult
 
 ClubKey = str | int
 Colors = Sequence[str] | Mapping[str, str] | None
@@ -1520,4 +1521,54 @@ def plot_rolling(
     ax.figure.set_facecolor(th.surface)
     auto = "Club membership across windows"
     _decorate(ax, th, auto if title == "auto" else title, None)
+    return ax
+
+
+# -- spatial clustering ----------------------------------------------------------
+
+
+def plot_spatial(
+    result: SpatialResult,
+    *,
+    ax: Axes | None = None,
+    level: float = 0.95,
+    min_expected: float = 0.5,
+    theme: str | Theme | None = None,
+    title: str | None = "auto",
+) -> Axes:
+    """Joins within each club relative to random assignment (1 = random).
+
+    Dots are the observed ratio of same-club neighbour pairs to their
+    expected number; lines span the central ``level`` of the permuted
+    ratios. A dot right of its line means the club is more spatially
+    clustered than chance. Clubs expected to have fewer than
+    ``min_expected`` joins (one or two units) are left out, since their
+    ratio is noise. Dots take the club colours; the last row is all clubs.
+    """
+    th = _theme(theme)
+    summary = result.summary()
+    summary = summary[summary["expected"] >= min_expected]
+    groups = list(summary.index)
+    columns = [k for k, g in enumerate([*result.groups, "all clubs"]) if g in groups]
+    ratios = result.permutations[:, columns] / summary["expected"].to_numpy()
+    low, high = np.quantile(ratios, [(1 - level) / 2, (1 + level) / 2], axis=0)
+    ax = _new_axes(ax, th, figsize=(6.4, 0.45 * len(groups) + 1.4))
+    y = np.arange(len(groups))[::-1]
+    ax.axvline(1.0, color=th.baseline, linewidth=1, zorder=1)
+    ax.hlines(y, low, high, color=th.ink_muted, linewidth=th.line_width, zorder=2,
+              label=f"{level:.0%} of random assignments")  # fmt: skip
+    palette = {g: th.colors[k % len(th.colors)] for k, g in enumerate(result.groups)}
+    palette |= {"divergent": th.ink_muted, "all clubs": th.ink}
+    colors = [palette[g] for g in groups]
+    ax.scatter(summary["ratio"], y, s=th.marker_size * 4 / 3, color=colors,
+               edgecolors=th.surface, linewidths=1.5, zorder=3, label="observed")  # fmt: skip
+    _style_axes(ax, th)
+    ax.grid(False, axis="y")
+    if th.gridlines:
+        ax.grid(True, axis="x", color=th.grid, linewidth=1)
+    ax.set_yticks(y, groups)
+    _legend(ax, th, loc="lower right")
+    auto = f"Neighbours in the same club ({len(result.joins)} joins)"
+    _decorate(ax, th, auto if title == "auto" else title, None,
+              xlabel="joins within the club / expected at random")  # fmt: skip
     return ax

@@ -58,6 +58,7 @@ from .plotting import (
     plot_pairwise,
     plot_rolling,
     plot_sigma,
+    plot_spatial,
     plot_stability,
     plot_transition_paths,
     plot_transitions,
@@ -75,6 +76,7 @@ from .sensitivity import (
     sensitivity,
 )
 from .sigma import SigmaResult, sigma_convergence
+from .spatial import SpatialResult, neighbours, spatial_clustering
 
 __version__ = "0.1.0"
 
@@ -98,6 +100,7 @@ __all__ = [
     "RollingClubs",
     "SensitivityResult",
     "SigmaResult",
+    "SpatialResult",
     "Theme",
     "adf_test",
     "adjusted_rand_index",
@@ -125,6 +128,7 @@ __all__ = [
     "ordinal_colors",
     "merge_clubs",
     "merge_divergent",
+    "neighbours",
     "pairwise_convergence",
     "plot_average_paths",
     "plot_beta",
@@ -140,6 +144,7 @@ __all__ = [
     "plot_rolling",
     "plot_map",
     "plot_sigma",
+    "plot_spatial",
     "plot_stability",
     "plot_transition_paths",
     "plot_transitions",
@@ -151,6 +156,7 @@ __all__ = [
     "sensitivity",
     "set_theme",
     "sigma_convergence",
+    "spatial_clustering",
     "to_latex",
     "theme_context",
     "wide_panel",

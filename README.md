@@ -77,7 +77,7 @@ In Jupyter, results display as tables.
 | Find clubs | `find_clubs` (fixed or incremental `c*`, R or Stata `convention`), `.merge("PS" \| "vLT")`, `.merge_divergent()`, `.rename(...)` |
 | Check them | `sensitivity` (grid of settings), `bootstrap` (units, business cycles or end of sample), `rolling_clubs` (clubs over time), `compare_clubs`, `adjusted_rand_index`; `n_jobs=-1` for large panels |
 | Classical convergence | `beta_convergence`, `sigma_convergence`, `distribution_dynamics`, `pairwise_convergence` (ADF + KPSS) |
-| Explain membership | `club_determinants` (ordered logit or probit) |
+| Explain membership | `club_determinants` (ordered logit or probit), `spatial_clustering` (are clubs neighbours? join counts on a map) |
 | Show the results | `.plot()` and 15 more plots, 4 themes (`light`, `dark`, `print`, `journal`) and your own, interactive charts, maps |
 | Share them | `report` (self-contained HTML appendix), the `convergence-clubs` command line |
 
@@ -91,7 +91,7 @@ In Jupyter, results display as tables.
 | [Finding clubs](docs/guide/clubs.md) | Bundled data, input and missing values, sorting, failing clubs, renaming, R and Stata conventions |
 | [Robustness](docs/guide/robustness.md) | Sensitivity analysis, bootstrap confidence, clubs over time, large panels |
 | [β, σ, dynamics, pairwise tests and determinants](docs/guide/classical.md) | The classical measures and the ordered logit of club membership |
-| [Plots and maps](docs/guide/plots.md) | Every plot, themes and style, colours, interactive charts, maps |
+| [Plots and maps](docs/guide/plots.md) | Every plot, themes and style, colours, interactive charts, maps, spatial clustering |
 | [Report and command line](docs/guide/report-and-cli.md) | The HTML report ([example](docs/report-example.html)) and every CLI option |
 | [Validation](docs/guide/validation.md) | Correspondence with the R API, tests against R and Stata, known differences |
 | [References](docs/guide/references.md) | The papers behind each method |

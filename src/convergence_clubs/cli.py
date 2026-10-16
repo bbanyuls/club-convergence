@@ -164,7 +164,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     out.add_argument("--map", type=Path, metavar="FILE", help="save a map of the clubs")
     out.add_argument(
-        "--geodata", type=Path, metavar="PATH", help="region boundaries for --map (any GIS file)"
+        "--geodata",
+        type=Path,
+        metavar="PATH",
+        help="region boundaries for --map and --spatial (any GIS file)",
+    )
+    out.add_argument(
+        "--spatial",
+        action="store_true",
+        help="test whether clubs are spatially clustered (join counts; needs --geodata)",
     )
     out.add_argument(
         "--geo-key", metavar="COLUMN", help="column of --geodata holding the unit names"
@@ -350,6 +358,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         (args.html, "interactive chart", lambda: _write_html(args, result)),
         (args.report, "report", lambda: _write_report(args, raw)),
         (args.map, "map", lambda: _write_map(args, result)),
+        (args.spatial, "spatial clustering", lambda: _report_spatial(args, result)),
         (args.plot, "plot", lambda: _write_plot(args, result)),
         (args.latex, "LaTeX table", lambda: result.to_latex(path=args.latex)),
         (
@@ -434,6 +443,23 @@ def _write_map(args: argparse.Namespace, result) -> None:
     for w in caught:
         print(f"convergence-clubs: warning: {w.message}", file=sys.stderr)
     _figure(ax).savefig(args.map, dpi=args.dpi or 150)
+
+
+def _report_spatial(args: argparse.Namespace, result) -> None:
+    if args.geodata is None:
+        raise ValueError("--spatial needs --geodata")
+    import geopandas as gpd
+
+    from .spatial import spatial_clustering
+
+    spatial = spatial_clustering(
+        result, geodata=gpd.read_file(args.geodata), key=args.geo_key, seed=args.seed
+    )
+    print(
+        f"\nspatial clustering of the clubs: {len(spatial.joins)} pairs of neighbours, "
+        f"{spatial.n_isolated} units without neighbours\n"
+    )
+    print(spatial.summary().to_string(float_format=lambda v: f"{v:.3f}"))
 
 
 def _report_determinants(args: argparse.Namespace, result) -> None:

@@ -98,6 +98,35 @@ in a warning rather than silently dropped. From the command line, use
 
 ![World map of the merged clubs, darker for higher clubs; hatched countries have bootstrap stability below 0.8](../map.png)
 
+### Are the clubs spatially clustered?
+
+Clubs often look regional on a map. `spatial_clustering` tests it with **join counts**: it
+counts the pairs of neighbouring regions that share a club, overall and club by club, and
+compares them with random assignments of the same club sizes to the same map (999
+permutations by default).
+
+```python
+nb = cc.neighbours(world, merged.data.index, key="ISO_A3_EH", names=cc.country_codes())
+spatial = cc.spatial_clustering(merged, nb, seed=0)   # or geodata=world, key=..., names=...
+spatial.summary()   # joins within each club, expected at random, ratio, z and p-value
+spatial.local()     # each unit's neighbours and the share of them in its own club
+spatial.plot()      # figure below
+```
+
+On the GDP data, 75 of the 187 pairs of neighbouring countries share a club, 1.75 times as many
+as at random (p = 0.001). Almost all of it comes from club 4, mostly sub-Saharan countries,
+with 2.9 times its expected joins; club 1 is at 1.4 times (p = 0.07) and the others are close to
+random.
+
+![Joins within each club relative to random assignment](../spatial.png)
+
+`neighbours()` builds contiguity from the boundaries: `contiguity="queen"` (any shared point,
+the default) or `"rook"` (a shared stretch of border), and `tolerance=` closes small gaps between
+boundaries. You can also pass your own `{unit: [neighbours]}`, so geopandas is optional. Check the
+neighbours of countries with overseas territories: in Natural Earth, France includes French
+Guiana and so borders Brazil and Suriname. Islands have no neighbours; they keep their club in
+the permutations but enter no join. From the command line: `--spatial --geodata FILE --geo-key COLUMN`.
+
 ### Customizing plots
 
 - **Colors.** `colors=["#000", ...]` (in club order) or `colors={"club2": "crimson"}`.
