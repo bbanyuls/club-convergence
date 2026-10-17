@@ -155,26 +155,44 @@ def test_html_option(tmp_path, capsys):
     assert page.stat().st_size > 10_000
 
 
-def test_stata_convention_option(tmp_path, capsys):
+@pytest.fixture
+def mendez_h(tmp_path):
     from pathlib import Path
 
     mendez = pd.read_csv(Path(__file__).parent / "fixtures" / "mendez2020_stata.csv")
     data = mendez[mendez["sample"] == "hiNo"][["country", "year", "log_h"]]
     csv = tmp_path / "h.csv"
     data.to_csv(csv, index=False)
-    base = [str(csv), "--long", "country", "year", "log_h", "--time-trim", "0.333"]
-    assert main([*base, "--convention", "Stata"]) == 0
-    stata = capsys.readouterr().out
-    assert stata.startswith("5 convergence clubs, 0 divergent units")  # as psecta
-    assert main(base) == 0
-    assert capsys.readouterr().out.startswith("4 convergence clubs")  # R: max |t| core
-    assert main([*base, "--core-rule", "max_t"]) == 0
-    assert capsys.readouterr().out.startswith("5 convergence clubs")
-    assert main([*base, "--convention", "Stata", "--merge", "PS", "--iterate-merge"]) == 0
-    assert capsys.readouterr().out.startswith("3 convergence clubs")  # as imergeclub
-    assert main([*base, "--divergent-method", "last_club"]) == 1
+    return [str(csv), "--long", "country", "year", "log_h", "--time-trim", "0.333"]
+
+
+@pytest.mark.parametrize(
+    ("options", "summary"),
+    [
+        pytest.param(
+            ["--convention", "Stata"], "5 convergence clubs, 0 divergent units", id="stata-psecta"
+        ),
+        pytest.param([], "4 convergence clubs", id="r-max-abs-t-core"),
+        pytest.param(["--core-rule", "max_t"], "5 convergence clubs", id="r-with-stata-core-rule"),
+        pytest.param(
+            ["--convention", "Stata", "--merge", "PS", "--iterate-merge"],
+            "3 convergence clubs",
+            id="stata-imergeclub",
+        ),
+    ],
+)
+def test_conventions_reproduce_the_reference_implementations(mendez_h, capsys, options, summary):
+    assert main([*mendez_h, *options]) == 0
+    assert capsys.readouterr().out.startswith(summary)
+
+
+def test_last_club_divergent_method_needs_a_merge(mendez_h, capsys):
+    assert main([*mendez_h, "--divergent-method", "last_club"]) == 1
     assert "needs --merge" in capsys.readouterr().err
-    assert main([*base, "--convention", "Stata", "--sensitivity"]) == 0
+
+
+def test_stata_convention_sensitivity(mendez_h, capsys):
+    assert main([*mendez_h, "--convention", "Stata", "--sensitivity"]) == 0
     assert "sensitivity (" in capsys.readouterr().out
 
 

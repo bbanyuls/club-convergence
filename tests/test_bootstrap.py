@@ -5,6 +5,9 @@ import pytest
 import convergence_clubs as cc
 from convergence_clubs.sensitivity import _ari, _partition
 
+#: Club sizes of the HP-filtered GDP panel in Sichera and Pizzuto (2019).
+PAPER_CLUB_SIZES = "50-30-21-24-14-11-2"
+
 
 def _clear_clubs(seed=0, n_per=15, t=40, limits=(1.6, 1.0, 0.4), noise=0.001):
     """Three well separated groups converging to different limits."""
@@ -40,7 +43,7 @@ def test_units_subsampling(filtered_gdp):
     assert len(runs) == 16
     table = runs.table()
     assert table.loc[0, "n_units"] == 152 and (table["n_units"][1:] == 106).all()
-    assert table.loc[0, "sizes"] == "50-30-21-24-14-11-2"  # full-sample baseline
+    assert table.loc[0, "sizes"] == PAPER_CLUB_SIZES
     st = runs.stability()
     assert (st["n_runs"] < 16).any() and (st["n_runs"] >= 1).all()
     share = runs.co_membership().to_numpy()
@@ -59,8 +62,7 @@ def test_reproducible_with_seed(filtered_gdp):
 def test_cycle_bootstrap_uses_unfiltered_data():
     log_gdp = np.log(cc.load_gdp())
     runs = cc.bootstrap(log_gdp, 5, method="cycle", filter_lambda=400, seed=0)
-    # The full-sample run is the HP-filtered data, i.e. the paper's clubs.
-    assert runs.table().loc[0, "sizes"] == "50-30-21-24-14-11-2"
+    assert runs.table().loc[0, "sizes"] == PAPER_CLUB_SIZES
     assert (runs.stability()["n_runs"] == 6).all()
 
 
