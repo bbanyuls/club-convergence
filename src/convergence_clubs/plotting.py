@@ -343,6 +343,27 @@ def _legend(ax: Axes, theme: Theme, **kwargs) -> None:
     )
 
 
+_MAX_INLINE_ENTRIES = 4
+
+
+def _place_legend(
+    ax: Axes, theme: Theme, n_entries: int, *, inside: str = "best", handles=None
+) -> None:
+    """Legend inside the axes, or beside them when it would cover the lines."""
+    kwargs = {} if handles is None else {"handles": handles}
+    if n_entries > _MAX_INLINE_ENTRIES:
+        _legend(ax, theme, loc="center left", bbox_to_anchor=(1.0, 0.5), **kwargs)
+    else:
+        _legend(ax, theme, loc=inside, **kwargs)
+
+
+def _draw_cell_gaps(ax: Axes, theme: Theme, k: int) -> None:
+    """Surface-coloured gaps between the cells of a k x k heatmap."""
+    for edge in np.arange(k - 1) + 0.5:
+        ax.axhline(edge, color=theme.surface, linewidth=2)
+        ax.axvline(edge, color=theme.surface, linewidth=2)
+
+
 def _end_labels(ax: Axes, theme: Theme, x_end, entries: list[tuple[str, float]]) -> bool:
     """Label line ends unless the labels would collide; returns whether they were drawn."""
     if not entries:
@@ -524,16 +545,13 @@ def plot_average_paths(
             entries.append((c.name, mean[-1]))
 
     _style_axes(ax, th, x, labels)
-    if direct_labels is True or (direct_labels == "auto" and len(entries) <= 4):
+    if direct_labels is True or (direct_labels == "auto" and len(entries) <= _MAX_INLINE_ENTRIES):
         _end_labels(ax, th, x[-1], entries)
     if legend and len(selected) > 1:
         # Emphasised clubs first, then the shared entry of the muted ones.
         handles = [ln for ln in ax.get_lines() if not str(ln.get_label()).startswith("_")]
         handles.sort(key=lambda ln: ln.get_label() == "other clubs")
-        if len(handles) > 4:  # a long legend would cover the lines
-            _legend(ax, th, handles=handles, loc="center left", bbox_to_anchor=(1.0, 0.5))
-        else:
-            _legend(ax, th, handles=handles, loc="best")
+        _place_legend(ax, th, len(handles), handles=handles)
     _decorate(ax, th, title, ylabel)
     return ax
 
@@ -594,10 +612,7 @@ def plot_cross_sectional_variation(
     _style_axes(ax, th, x, labels)
     n_entries = len([ln for ln in ax.get_lines() if not str(ln.get_label()).startswith("_")])
     if legend and n_entries > 1:
-        if n_entries > 4:  # a long legend would cover the lines
-            _legend(ax, th, loc="center left", bbox_to_anchor=(1.0, 0.5))
-        else:
-            _legend(ax, th, loc="best")
+        _place_legend(ax, th, n_entries)
     _decorate(ax, th, title, "H(t)")
     return ax
 
@@ -891,10 +906,7 @@ def plot_beta(
     ax.axhline(0, color=th.baseline, linewidth=1, zorder=1)
     ax.yaxis.set_major_formatter(PercentFormatter(1.0, decimals=1))
     if len(groups) > 1:
-        if len(groups) > 4:
-            _legend(ax, th, loc="center left", bbox_to_anchor=(1.0, 0.5))
-        else:
-            _legend(ax, th, loc="lower left")
+        _place_legend(ax, th, len(groups), inside="lower left")
     per = "per year" if years else "per period"
     auto = "β-convergence" + (" conditional on clubs" if result.club_effects else "")
     _decorate(
@@ -948,13 +960,10 @@ def plot_sigma(
         entries.append((group, y[-1]))
 
     _style_axes(ax, th, x, labels)
-    if direct_labels is True or (direct_labels == "auto" and len(entries) <= 4):
+    if direct_labels is True or (direct_labels == "auto" and len(entries) <= _MAX_INLINE_ENTRIES):
         _end_labels(ax, th, x[-1], entries)
     if legend and len(entries) > 1:
-        if len(entries) > 4:
-            _legend(ax, th, loc="center left", bbox_to_anchor=(1.0, 0.5))
-        else:
-            _legend(ax, th, loc="best")
+        _place_legend(ax, th, len(entries))
     ylabel = LABELS[result.measure] + (" (first period = 1)" if index else "")
     auto = "σ-convergence" + (" (indexed)" if index else "")
     _decorate(ax, th, auto if title == "auto" else title, ylabel)
@@ -994,9 +1003,7 @@ def plot_transitions(
     cmap = LinearSegmentedColormap.from_list("share", th.sequential)
     ax.imshow(P, cmap=cmap, vmin=0, vmax=1, interpolation="nearest")
     k = result.n_classes
-    for edge in np.arange(k - 1) + 0.5:  # surface gaps between cells
-        ax.axhline(edge, color=th.surface, linewidth=2)
-        ax.axvline(edge, color=th.surface, linewidth=2)
+    _draw_cell_gaps(ax, th, k)
     if annotate:
         # Only the non-empty cells: a field of "0.00" is noise that hides the diagonal.
         for i in range(k):
@@ -1173,9 +1180,7 @@ def _plot_pairwise_clubs(result: PairwiseResult, ax: Axes | None, th: Theme, tit
     top = 1.0
     cmap = LinearSegmentedColormap.from_list("share", th.sequential).with_extremes(bad=th.surface)
     ax.imshow(values, cmap=cmap, vmin=0, vmax=top, interpolation="nearest")
-    for edge in np.arange(k - 1) + 0.5:  # surface gaps between cells
-        ax.axhline(edge, color=th.surface, linewidth=2)
-        ax.axvline(edge, color=th.surface, linewidth=2)
+    _draw_cell_gaps(ax, th, k)
     for i in range(k):
         for j in range(i + 1):
             if np.isfinite(values[i, j]):
