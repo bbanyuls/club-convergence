@@ -44,6 +44,17 @@ def _thresholds(theta: np.ndarray, k: int) -> np.ndarray:
     return np.concatenate([[tail[0]], tail[0] + np.cumsum(np.exp(tail[1:]))])
 
 
+def _thresholds_jacobian(theta: np.ndarray, k: int) -> np.ndarray:
+    """Derivative of the thresholds with respect to ``theta[k:]``: row j is threshold j."""
+    n = theta.size - k
+    jac = np.zeros((n, n))
+    jac[:, 0] = 1.0
+    increments = np.exp(theta[k + 1 :])
+    for j in range(n):
+        jac[j, 1 : 1 + j] = increments[:j]
+    return jac
+
+
 def _loglik_grad(
     theta: np.ndarray, X: np.ndarray, y: np.ndarray, n_classes: int, model: str
 ) -> tuple[float, np.ndarray]:
@@ -61,12 +72,7 @@ def _loglik_grad(
     grad_kappa = np.zeros(n_classes - 1)
     np.add.at(grad_kappa, y[y < n_classes - 1], (f_up / prob)[y < n_classes - 1])
     np.add.at(grad_kappa, y[y > 0] - 1, -(f_lo / prob)[y > 0])
-    # Chain rule: kappa_j = theta_k + sum_{m <= j} exp(theta_{k+m}).
-    grad_tail = np.empty(n_classes - 1)
-    grad_tail[0] = grad_kappa.sum()
-    increments = np.exp(theta[k + 1 :])
-    for m in range(1, n_classes - 1):
-        grad_tail[m] = increments[m - 1] * grad_kappa[m:].sum()
+    grad_tail = _thresholds_jacobian(theta, k).T @ grad_kappa
     return float(np.log(prob).sum()), np.concatenate([grad_beta, grad_tail])
 
 
@@ -212,13 +218,9 @@ def club_determinants(
             break
 
     cov_theta = np.linalg.inv(-_hessian(theta, X, y, J, model))
-    # Delta method from (beta, kappa_0, log increments) to (beta, kappa).
     jac = np.zeros((k + J - 1, k + J - 1))
     jac[:k, :k] = np.eye(k)
-    increments = np.exp(theta[k + 1 :])
-    for j in range(J - 1):
-        jac[k + j, k] = 1.0
-        jac[k + j, k + 1 : k + 1 + j] = increments[:j]
+    jac[k:, k:] = _thresholds_jacobian(theta, k)
     cov = jac @ cov_theta @ jac.T
 
     beta, se = theta[:k], np.sqrt(np.diag(cov)[:k])
