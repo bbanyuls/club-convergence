@@ -70,27 +70,40 @@ def _result(base, clubs):
     return base._replace(clubs=made, divergent_ids=rest)
 
 
-def test_movers_definition():
+@pytest.fixture
+def first_window():
+    """Six units in clubs {0, 1, 2} and {3, 4}, with unit 5 divergent."""
     base = cc.find_clubs(cc.load_filtered_gdp().iloc[:6])
-    units = base.data.index
-    # Window 1: {0,1,2} {3,4}, 5 divergent. Window 2: {3,4} {0,1} {2} {5}:
-    # 0 and 1 move together (renumbered, not movers); 2 falls behind them;
-    # 3 and 4 are renumbered to club1; 5 joins a club.
-    w1 = _result(base, [[0, 1, 2], [3, 4]])
-    w2 = _result(base, [[3, 4], [0, 1], [2], [5]])
-    movers = RollingClubs(("a", "b"), (w1, w2)).movers().set_index("unit")
+    return base, base.data.index, _result(base, [[0, 1, 2], [3, 4]])
+
+
+def _movers(first_window, second_clubs):
+    base, units, w1 = first_window
+    rolled = RollingClubs(("a", "b"), (w1, _result(base, second_clubs)))
+    return rolled.movers().set_index("unit"), units
+
+
+def test_renumbering_is_not_a_move_but_falling_behind_mates_is(first_window):
+    movers, units = _movers(first_window, [[3, 4], [0, 1], [2], [5]])
     assert set(movers.index) == {units[2], units[5]}
     assert movers.loc[units[2], "direction"] == "down"
     assert movers.loc[units[2], "mates_went_to"] == "club2"
     assert movers.loc[units[5], "direction"] == "from divergent"
-    # 2 joins the club above the one its mates 0 and 1 go to.
-    up = RollingClubs(("a", "c"), (w1, _result(base, [[2, 3, 4], [0, 1]]))).movers()
-    assert up.set_index("unit").loc[units[2], "direction"] == "up"
-    to_div = RollingClubs(("a", "c"), (w1, _result(base, [[0, 1, 5], [3, 4]]))).movers()
-    assert to_div.set_index("unit").loc[units[2], "direction"] == "to divergent"
-    # 0 and 1 become divergent, 2 stays in a club.
-    alone = RollingClubs(("a", "d"), (w1, _result(base, [[3, 4], [2]]))).movers()
-    assert alone.set_index("unit").loc[units[2], "direction"] == "mates diverged"
+
+
+def test_mover_joins_the_club_above_its_mates(first_window):
+    movers, units = _movers(first_window, [[2, 3, 4], [0, 1]])
+    assert movers.loc[units[2], "direction"] == "up"
+
+
+def test_unit_that_leaves_every_club_moves_to_divergent(first_window):
+    movers, units = _movers(first_window, [[0, 1, 5], [3, 4]])
+    assert movers.loc[units[2], "direction"] == "to divergent"
+
+
+def test_unit_whose_mates_all_became_divergent_is_flagged(first_window):
+    movers, units = _movers(first_window, [[3, 4], [2]])
+    assert movers.loc[units[2], "direction"] == "mates diverged"
 
 
 def test_parallel_and_validation():

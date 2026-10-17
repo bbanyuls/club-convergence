@@ -148,8 +148,9 @@ def scripted(monkeypatch):
 
 def test_iterate_repeats_the_merging_pass(scripted):
     base, converging = scripted
-    # Pass 1: 1+2 and 3+4 merge, (1,2)+3 does not; pass 2: (1,2)+(3,4) does.
-    converging |= {frozenset({1, 2}), frozenset({3, 4}), frozenset({1, 2, 3, 4})}
+    first_pass = {frozenset({1, 2}), frozenset({3, 4})}
+    second_pass = {frozenset({1, 2, 3, 4})}
+    converging |= first_pass | second_pass
     once = base.merge("PS")
     assert [c.merged_from for c in once] == [("club1", "club2"), ("club3", "club4")]
     repeated = base.merge("PS", iterate=True)
@@ -159,7 +160,8 @@ def test_iterate_repeats_the_merging_pass(scripted):
 
 def test_last_club_absorbs_all_divergent_units(scripted):
     base, converging = scripted
-    converging |= {frozenset({4, 0})}
+    club4_with_divergent = frozenset({4, 0})
+    converging.add(club4_with_divergent)
     merged = base.merge("PS", merge_divergent=True, divergent_method="last_club")
     assert merged.n_divergent == 0 and merged.n_clubs == 4
     assert merged["club4"].merged_from == ("club4", "divergent")
