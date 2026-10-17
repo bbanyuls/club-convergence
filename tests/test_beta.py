@@ -160,3 +160,14 @@ def test_duplicate_periods_are_rejected(gdp):
     duplicated = pd.concat([gdp, gdp[[2003]]], axis=1)
     with pytest.raises(ValueError, match="unique"):
         cc.beta_convergence(duplicated)
+
+
+def test_ols_turns_a_failed_inversion_into_the_same_clear_error(monkeypatch):
+    def singular(_):
+        raise np.linalg.LinAlgError("Singular matrix")
+
+    rng = np.random.default_rng(0)
+    X = np.column_stack([np.ones(20), rng.normal(size=20)])
+    monkeypatch.setattr(np.linalg, "inv", singular)
+    with pytest.raises(ValueError, match="collinear"):
+        ols(rng.normal(size=20), X)

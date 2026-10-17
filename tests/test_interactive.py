@@ -48,14 +48,24 @@ def test_average_only_uses_a_unified_crosshair(merged):
         merged.plot.interactive(kind="pie")
 
 
+def test_dash_lengths_scale_with_the_drawn_line_width():
+    thick = cc.LIGHT.replace(line_width=4.0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", cc.ClubConvergenceWarning)
+        nine = cc.find_clubs(cc.load_filtered_gdp(), time_trim=0.3)
+    drawn = nine.plot.interactive(kind="average", theme=thick)
+    assert drawn.data[-1].line.width == 5.0
+    assert drawn.data[-1].line.dash == "20px,10px"
+
+
 def test_clubs_past_the_palette_are_dashed():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", cc.ClubConvergenceWarning)
         nine = cc.find_clubs(cc.load_filtered_gdp(), time_trim=0.3)
     fig = nine.plot.interactive(kind="average")
-    assert [t.line.dash for t in fig.data] == ["solid"] * 8 + ["8px,4px"]
+    assert [t.line.dash for t in fig.data] == ["solid"] * 8 + ["10px,5px"]
     fig = nine.plot.interactive(kind="average", theme="print")
-    assert [t.line.dash for t in fig.data][2:4] == ["solid", "10px,4px"]
+    assert [t.line.dash for t in fig.data][2:4] == ["solid", "12.5px,5px"]
     named = cc.LIGHT.replace(colors=("#000000",), linestyles=("-", ":", "-.", "--", "loose"))
     fig = nine.plot.interactive(kind="average", theme=named, clubs=[0, 1, 2, 3, 4])
     assert [t.line.dash for t in fig.data] == ["solid", "dot", "dashdot", "dash", "dash"]

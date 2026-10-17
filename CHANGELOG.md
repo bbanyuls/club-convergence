@@ -54,6 +54,7 @@ All notable changes to this project are documented here. The format follows
 - `report()`: a self-contained HTML replication appendix ([#23](https://github.com/bbanyuls/club-convergence/pull/23)).
 - Command-line tool `convergence-clubs`, covering every analysis.
 - `MissingRegionWarning` (a `UserWarning`): the map's warning about units with no region now has its own class, so it can be silenced without hiding other warnings.
+- Interactive charts: dashed club averages now scale their dash lengths by the drawn line width (they were about 20 % too short at the default width).
 
 ### Data
 - GDP panel of Phillips and Sul (2009), with ISO3 codes ([#1](https://github.com/bbanyuls/club-convergence/pull/1), [#20](https://github.com/bbanyuls/club-convergence/pull/20)).
