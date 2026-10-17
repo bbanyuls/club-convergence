@@ -124,7 +124,7 @@ def ols(y: np.ndarray, X: np.ndarray, cov_type: str = "HC1", lags: int | None = 
     with np.errstate(all="ignore"):
         try:
             xtx_inv = np.linalg.inv(X.T @ X)
-        except np.linalg.LinAlgError:  # pragma: no cover - the rank check comes first
+        except np.linalg.LinAlgError:
             raise ValueError(
                 "the regression could not be estimated (collinear regressors?)"
             ) from None
