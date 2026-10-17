@@ -90,9 +90,12 @@ def _hessian(theta, X, y, n_classes, model, step=1e-5) -> np.ndarray:
     return (H + H.T) / 2
 
 
+_LOGIT_TO_PROBIT_SCALE = 1.702
+
+
 def _quantile(p: np.ndarray, model: str) -> np.ndarray:
     logit = np.log(p / (1 - p))
-    return logit if model == "logit" else logit / 1.702  # probit start values
+    return logit if model == "logit" else logit / _LOGIT_TO_PROBIT_SCALE
 
 
 @dataclass(frozen=True, eq=False)

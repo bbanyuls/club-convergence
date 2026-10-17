@@ -324,6 +324,10 @@ class PairwiseResult:
         )
 
 
+#: About four chunks per process balances the load without much pickling.
+_CHUNKS_PER_WORKER = 4
+
+
 def _test_pairs(task: tuple[np.ndarray, list[tuple[int, int]], dict[str, Any]]) -> list[tuple]:
     """ADF (and KPSS) statistics for a chunk of pairs; a worker of :func:`pairwise_convergence`."""
     values, pairs, options = task
@@ -393,8 +397,7 @@ def pairwise_convergence(
         values = np.log(values)
     units = data.index
     index = list(combinations(range(len(units)), 2))
-    # About four chunks per process balances the load without much pickling.
-    size = max(1, math.ceil(len(index) / (4 * n_workers(n_jobs))))
+    size = max(1, math.ceil(len(index) / (_CHUNKS_PER_WORKER * n_workers(n_jobs))))
     options = {"regression": regression, "max_lag": max_lag, "autolag": autolag}
     options |= {"kpss": kpss, "kpss_nlags": kpss_nlags}
     tasks = [(values, index[k : k + size], options) for k in range(0, len(index), size)]

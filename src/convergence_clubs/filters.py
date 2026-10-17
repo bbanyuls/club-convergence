@@ -10,12 +10,8 @@ import pandas as pd
 
 def _hp_trend_matrix(n: int, lamb: float) -> np.ndarray:
     """Matrix ``(I + lamb * D'D)`` where ``D`` takes second differences."""
-    # Accumulate D'D row by row of D (coefficients 1, -2, 1): it is pentadiagonal.
-    coef = np.array([1.0, -2.0, 1.0])
-    dtd = np.zeros((n, n))
-    for r in range(n - 2):
-        dtd[r : r + 3, r : r + 3] += np.outer(coef, coef)
-    return np.eye(n) + lamb * dtd
+    D = np.diff(np.eye(n), n=2, axis=0)
+    return np.eye(n) + lamb * (D.T @ D)
 
 
 @overload
