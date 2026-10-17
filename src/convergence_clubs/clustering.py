@@ -5,7 +5,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Hashable, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -39,12 +39,20 @@ class _Rules:
 
 R_RULES = _Rules()
 
-#: Defaults of each convention: (time_trim, cstar_method, cstar_increment, cstar_cap, rules).
-CONVENTIONS: dict[str, tuple[float, str, float, float, _Rules]] = {
+
+class _Defaults(NamedTuple):
+    time_trim: float
+    cstar_method: str
+    cstar_increment: float
+    cstar_cap: float
+    rules: _Rules
+
+
+CONVENTIONS: dict[str, _Defaults] = {
     # R package ConvergenceClubs 2.2.5
-    "R": (1 / 3, "fixed", 0.1, 3.0, _Rules("half_even", "max_abs_t", True)),
+    "R": _Defaults(1 / 3, "fixed", 0.1, 3.0, _Rules("half_even", "max_abs_t", True)),
     # Stata package psecta (Du, 2018): kq(0.3) cr(0) incr(0.05) maxcr(50)
-    "Stata": (0.3, "incremental", 0.05, 50.0, _Rules("half_up", "max_t", False)),
+    "Stata": _Defaults(0.3, "incremental", 0.05, 50.0, _Rules("half_up", "max_t", False)),
 }
 
 
@@ -192,11 +200,12 @@ def find_clubs(
         raise TypeError("data must be a pandas DataFrame with units in rows and periods in columns")
     if convention not in CONVENTIONS:
         raise ValueError(f"convention must be one of {sorted(CONVENTIONS)}")
-    default_trim, default_method, default_increment, default_cap, rules = CONVENTIONS[convention]
-    time_trim = default_trim if time_trim is None else time_trim
-    cstar_method = default_method if cstar_method is None else cstar_method
-    cstar_increment = default_increment if cstar_increment is None else cstar_increment
-    cstar_cap = default_cap if cstar_cap is None else cstar_cap
+    defaults = CONVENTIONS[convention]
+    rules = defaults.rules
+    time_trim = defaults.time_trim if time_trim is None else time_trim
+    cstar_method = defaults.cstar_method if cstar_method is None else cstar_method
+    cstar_increment = defaults.cstar_increment if cstar_increment is None else cstar_increment
+    cstar_cap = defaults.cstar_cap if cstar_cap is None else cstar_cap
     if core_rule is not None:
         if core_rule not in ("max_t", "max_abs_t"):
             raise ValueError("core_rule must be 'max_t' or 'max_abs_t'")
