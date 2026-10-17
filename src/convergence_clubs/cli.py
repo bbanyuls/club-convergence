@@ -352,8 +352,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         result.memberships().to_csv(args.memberships)
     if args.summary:
         result.summary(members=args.members).to_csv(args.summary)
-    # Each requested output or analysis is one step; the first that fails stops
-    # the run with its error (exit status 1).
     steps: list[tuple[Any, str, Callable[[], object]]] = [
         (args.html, "interactive chart", lambda: _write_html(args, result)),
         (args.report, "report", lambda: _write_report(args, raw)),

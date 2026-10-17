@@ -142,7 +142,7 @@ def adf_test(
             n_params = n_trend + 1 + k
             penalty = 2 * n_params if autolag == "AIC" else math.log(nobs) * n_params
             ic = -2 * llf + penalty
-            if best is None or ic < best[0]:  # ties keep the shorter lag
+            if best is None or ic < best[0]:
                 best = (ic, k)
         assert best is not None
         lags = best[1]
@@ -296,15 +296,12 @@ class PairwiseResult:
         both = pd.DataFrame(
             {"a": pd.concat([a, b]), "b": pd.concat([b, a]), "v": pd.concat([values, values])}
         )
-        # Pairs within a club appear twice above; the mean is unchanged.
         table = both.pivot_table(index="a", columns="b", values="v", aggfunc="mean")
         order = [c for c in _club_order(self.clubs) if c in table.index]
         return table.loc[order, order].rename_axis(index="club", columns="club")
 
     def matrix(self, column: str = "p_value") -> pd.DataFrame:
         """``column`` of every pair as a symmetric units x units table."""
-        # Fill a NumPy array, then wrap it: with copy-on-write, writing through
-        # DataFrame.to_numpy() fails (pandas 3) or silently changes a copy.
         table = np.full((len(self.units), len(self.units)), np.nan)
         values = self.pairs[column].to_numpy(dtype=float)
         i = self.units.get_indexer(pd.Index(self.pairs["unit_i"]))

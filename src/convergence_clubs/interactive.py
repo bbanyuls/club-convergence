@@ -93,9 +93,6 @@ def _x(columns: pd.Index) -> list:
     return list(columns)
 
 
-# -- transition paths ------------------------------------------------------------
-
-
 def transition_paths_figure(
     result: ConvergenceClubs,
     *,
@@ -141,7 +138,7 @@ def transition_paths_figure(
         for c in targets:
             style = styles[c.name]
             paths = h[list(c.ids)]
-            if club is not None:  # club panel: one muted line per unit
+            if club is not None:
                 for unit, path in zip(result.data.index[list(c.ids)], paths, strict=True):
                     fig.add_trace(
                         go.Scatter(
@@ -173,7 +170,6 @@ def transition_paths_figure(
             fig.add_hline(y=1.0, line={"color": th.baseline, "width": 1}, **cell)
 
     fig.update_yaxes(title_text="relative transition path", col=1)
-    # Averages only: a crosshair listing every club at the hovered period.
     hovermode = "x unified" if kind == "average" else "closest"
     _layout(
         fig, th, title, height=height or 300 * nrows + 80, hovermode=hovermode,
@@ -183,9 +179,6 @@ def transition_paths_figure(
         domain = fig.get_subplot(i // ncols + 1, i % ncols + 1).xaxis.domain
         annotation.update(x=domain[0], xanchor="left", font={"color": th.ink, "size": 13})
     return fig
-
-
-# -- sensitivity / bootstrap ------------------------------------------------------
 
 
 def co_membership_figure(
@@ -223,9 +216,6 @@ def co_membership_figure(
     fig.update_yaxes(autorange="reversed", showticklabels=len(names) <= 60, showgrid=False)
     fig.update_xaxes(showticklabels=len(names) <= 60)
     return fig
-
-
-# -- β and σ convergence ----------------------------------------------------------
 
 
 def beta_figure(
@@ -324,9 +314,6 @@ def sigma_figure(
     _layout(fig, th, auto if title == "auto" else title, height=460, hovermode="x unified")
     fig.update_yaxes(title_text=LABELS[result.measure] + (" (first period = 1)" if index else ""))
     return fig
-
-
-# -- rolling windows ------------------------------------------------------------------
 
 
 def rolling_figure(

@@ -99,11 +99,11 @@ def test_stability_plot(filtered_gdp):
     runs = cc.bootstrap(filtered_gdp, 10, seed=0)
     ax = runs.plot_stability(label=8)
     assert [t.get_text() for t in ax.get_yticklabels()] == [f"club{i}" for i in range(1, 8)]
-    assert len(ax.collections) == 7  # one set of dots per club
+    assert len(ax.collections) == 7
     names = [t.get_text() for t in ax.texts if t.get_text() != "0.8"]
     assert 1 <= len(names) <= 8
     least = runs.stability()["stability"].idxmin()
-    assert least in names  # the least stable unit is always labelled
+    assert least in names
     renderer = ax.figure.canvas.get_renderer()
     boxes = [t.get_window_extent(renderer) for t in ax.texts if t.get_text() != "0.8"]
     assert not any(a.overlaps(b) for i, a in enumerate(boxes) for b in boxes[i + 1 :])

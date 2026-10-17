@@ -59,8 +59,6 @@ class BetaResult:
     controls: tuple[str, ...] = ()
     control_means: tuple[float, ...] = ()
 
-    # -- headline numbers ---------------------------------------------------
-
     @property
     def beta(self) -> float:
         return float(self.coefficients.at[INITIAL, "coef"])  # type: ignore[arg-type]
@@ -90,8 +88,6 @@ class BetaResult:
     def converges(self, level: float = 0.05) -> bool:
         """Negative and significant β (two-sided test at ``level``)."""
         return self.beta < 0 and self.p_value < level
-
-    # -- tables -------------------------------------------------------------
 
     def summary(self) -> pd.DataFrame:
         """Coefficient table (estimate, standard error, t, p)."""

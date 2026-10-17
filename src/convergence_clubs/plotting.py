@@ -45,12 +45,8 @@ _BLUE_RAMP = (
     "#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5",
     "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b",
 )  # fmt: skip
-# "Nothing" must recede into the surface, so the light ramp starts with a tint
-# barely off the surface rather than at a visible blue.
 _LIGHT_SEQUENTIAL = ("#eef4fc", *_BLUE_RAMP)
 
-
-# -- OKLab interpolation, for ordinal ramps with even lightness steps --------------
 
 _M1 = np.array([
     [0.4122214708, 0.5363325363, 0.0514459929],
@@ -140,8 +136,6 @@ class Theme:
         return replace(self, **changes)
 
 
-# Categorical slots validated for colour-vision deficiency on adjacent pairs,
-# with separate steps for light and dark surfaces.
 LIGHT = Theme(
     surface="#fcfcfb",
     ink="#0b0b0b",
@@ -160,14 +154,9 @@ DARK = Theme(
     baseline="#383835",
     colors=("#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"),
     unit_alpha=0.5,
-    # On a dark surface "nothing" must recede into the surface: start near it
-    # and run the ramp towards light.
     sequential=("#22262d", *_BLUE_RAMP[::-1]),
-    # Low end no darker than 2:1 against the surface, running towards light.
     ordinal=("#184f95", "#3987e5", "#cde2fb"),
 )
-# Black and white for print: three greys, each drawn solid, dashed, dotted and
-# dash-dotted, so twelve clubs stay distinguishable without colour.
 PRINT = Theme(
     surface="#ffffff",
     ink="#000000",
@@ -181,8 +170,6 @@ PRINT = Theme(
     linestyles=("-", (0, (5, 2)), (0, (1, 1.5)), (0, (6, 2, 1, 2))),
     ordinal=("#c4c4c4", "#6b6b6b", "#000000"),
 )
-# The usual look of an economics journal: a box around each panel, outward
-# ticks, no gridlines and centred titles, on white, with the light palette.
 JOURNAL = LIGHT.replace(
     surface="#ffffff", frame="box", gridlines=False, title_loc="center", line_width=1.6
 )
@@ -211,7 +198,7 @@ def get_theme(theme: str | Theme | None = None) -> Theme:
 
 def set_theme(theme: str | Theme) -> None:
     """Use ``theme`` in every plot that is not given one explicitly."""
-    get_theme(theme)  # validate now rather than at the next plot
+    get_theme(theme)
     _default_theme[0] = theme
 
 
@@ -224,9 +211,6 @@ def theme_context(theme: str | Theme) -> Iterator[Theme]:
         yield get_theme()
     finally:
         _default_theme[0] = previous
-
-
-# -- helpers -------------------------------------------------------------------
 
 
 def _plt():
@@ -393,9 +377,6 @@ def _end_dot(ax: Axes, theme: Theme, x, y, color: str) -> None:
         zorder=5,
         label="_nolegend_",
     )
-
-
-# -- single panels -------------------------------------------------------------
 
 
 def plot_club(
@@ -671,7 +652,7 @@ def plot_log_t(
     verdict = "convergence not rejected" if model.converges() else "convergence rejected"
     ax.text(
         0.02,
-        0.04 if show_discarded else 0.96,  # the discarded points fill the top left
+        0.04 if show_discarded else 0.96,
         f"β = {model.beta:.3f} (s.e. {model.std_err:.3f})\nt = {model.t_value:.2f}: {verdict}",
         transform=ax.transAxes,
         va="bottom" if show_discarded else "top",
@@ -1053,8 +1034,6 @@ def plot_class_distributions(
     shares = result.distributions()
     k, n = shares.shape
     width = 0.8 / n
-    # Initial -> final -> ergodic is an order in time, not a set of clubs: one
-    # hue from light to dark, so the bars do not borrow the club colours.
     for i, (column, color) in enumerate(zip(shares.columns, ordinal_colors(n, th), strict=True)):
         ax.bar(
             np.arange(k) + (i - (n - 1) / 2) * width, shares[column], width=width * 0.92,
@@ -1107,7 +1086,6 @@ def plot_densities(
     if len(periods) == 2:
         line_colors = [th.ink_muted, th.colors[0]]
     else:
-        # Periods are ordered: later ones stand out more from the surface.
         line_colors = ordinal_colors(len(periods), th)
 
     ax.axvline(1.0, color=th.baseline, linewidth=1, zorder=1)
@@ -1188,7 +1166,7 @@ def _plot_pairwise_clubs(result: PairwiseResult, ax: Axes | None, th: Theme, tit
     shares = result.club_matrix()
     k = len(shares)
     values = shares.to_numpy(dtype=float, copy=True)
-    values[np.triu_indices(k, 1)] = np.nan  # symmetric: the lower triangle says it all
+    values[np.triu_indices(k, 1)] = np.nan
     ax = _new_axes(ax, th, figsize=(1.6 + 0.75 * k, 1.2 + 0.7 * k))
     # A fixed 0-100% scale: 100% would be full convergence, so weak evidence
     # must look weak rather than be stretched to the darkest colour.
@@ -1299,9 +1277,6 @@ def plot_pairwise(
     return ax
 
 
-# -- grid ----------------------------------------------------------------------
-
-
 def plot_transition_paths(
     result: ConvergenceClubs,
     *,
@@ -1341,7 +1316,7 @@ def plot_transition_paths(
         raise ValueError("kind must be 'both', 'clubs' or 'average'")
     th = _theme(theme)
     selected = _select(result, clubs)
-    if not selected:  # no clubs at all, or an empty selection
+    if not selected:
         raise ValueError("there are no clubs to plot")
     club_panels = selected if kind in ("both", "clubs") else []
     with_average = kind in ("both", "average")
@@ -1391,9 +1366,6 @@ def plot_transition_paths(
     if title:
         fig.suptitle(title, x=0.01, ha="left", color=th.ink, fontsize=th.font_size + 3)
     return fig
-
-
-# -- rolling windows -------------------------------------------------------------
 
 
 def _hex_alpha(color: str, alpha: float) -> tuple[float, float, float, float]:
@@ -1522,9 +1494,6 @@ def plot_rolling(
     auto = "Club membership across windows"
     _decorate(ax, th, auto if title == "auto" else title, None)
     return ax
-
-
-# -- spatial clustering ----------------------------------------------------------
 
 
 def plot_spatial(

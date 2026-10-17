@@ -51,8 +51,6 @@ class DynamicsResult:
     lag: int
     clubs: Any = None
 
-    # -- classes and transitions --------------------------------------------
-
     @property
     def labels(self) -> list[str]:
         return _class_labels(self.cuts)
@@ -153,8 +151,6 @@ class DynamicsResult:
             index="club", columns="class"
         )
 
-    # -- densities ----------------------------------------------------------
-
     def density(
         self, period: Hashable | None = None, *, bandwidth: float | None = None, n_grid: int = 256
     ) -> pd.Series:
@@ -170,8 +166,6 @@ class DynamicsResult:
         h = silverman_bandwidth(x) if bandwidth is None else bandwidth
         grid = np.linspace(x.min() - 3 * h, x.max() + 3 * h, n_grid)
         return pd.Series(gaussian_kde(x, grid, h), index=pd.Index(np.exp(grid), name="relative"))
-
-    # -- plots --------------------------------------------------------------
 
     def plot(self, **kwargs) -> Figure:
         """Transition matrix and class distributions side by side."""

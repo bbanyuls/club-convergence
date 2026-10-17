@@ -116,7 +116,7 @@ def to_latex(
         cells = [escape(key)] if index else []
         cells += [_cell(table[c].iat[i], decimals(c)) for c in columns]
         rows.append(" & ".join(cells) + r" \\")
-    if wrap:  # rows of wrapped text read better with some air between them
+    if wrap:
         rows = [rows[0], *(r"\addlinespace " + row for row in rows[1:])] if rows else rows
 
     packages = ["booktabs"] + (["array"] if wrap else []) + (["longtable"] if longtable else [])

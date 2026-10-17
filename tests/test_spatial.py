@@ -88,7 +88,7 @@ def test_isolated_units_and_errors(base):
     result = _with_clubs(base, [[0, 1], [2, 3]], n=5)
     a, b, c, d, e = result.data.index
     spatial = cc.spatial_clustering(result, {a: [b], c: [d], "Atlantis": [a]}, seed=0)
-    assert spatial.n_isolated == 1 and len(spatial.joins) == 2  # e has no neighbours
+    assert spatial.n_isolated == 1 and len(spatial.joins) == 2
     assert "2 joins" in repr(spatial)
     with pytest.raises(ValueError, match="neighbour_map or geodata"):
         cc.spatial_clustering(result)
@@ -108,7 +108,7 @@ def test_neighbours_from_geodata(base):
     queen = cc.neighbours(geo, units, key="name")
     rook = cc.neighbours(geo, units, key="name", contiguity="rook")
     centre = units[4]
-    assert len(queen[centre]) == 8 and len(rook[centre]) == 4  # diagonals touch at a corner
+    assert len(queen[centre]) == 8 and len(rook[centre]) == 4
     assert set(rook[units[0]]) == {units[1], units[3]}
 
     # A small gap between regions: no contact unless the tolerance closes it.

@@ -31,9 +31,6 @@ def _reference(gdp, X_extra=None, cov="HC1"):
     return sm.OLS(growth, X).fit(cov_type=cov, use_t=True)
 
 
-# -- statistics helpers -------------------------------------------------------
-
-
 def test_t_distribution_matches_scipy():
     rng = np.random.default_rng(0)
     for t, df in zip(rng.normal(0, 4, 300), rng.uniform(1, 300, 300), strict=True):
@@ -65,9 +62,6 @@ def test_newey_west_matches_statsmodels():
         ols(y, X, "HC3")
     with pytest.raises(ValueError, match="observations"):
         ols(y[:2], X[:2])
-
-
-# -- β-convergence ------------------------------------------------------------
 
 
 def test_absolute_beta_matches_statsmodels(gdp):

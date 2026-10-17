@@ -58,8 +58,6 @@ class ConvergenceClubs:
     hac_method: str
     params: dict[str, Any] = field(default_factory=dict)
 
-    # -- container protocol -------------------------------------------------
-
     def __iter__(self) -> Iterator[Club]:
         return iter(self.clubs)
 
@@ -73,8 +71,6 @@ class ConvergenceClubs:
                     return club
             raise KeyError(key)
         return self.clubs[key]
-
-    # -- basic information --------------------------------------------------
 
     @property
     def n_clubs(self) -> int:
@@ -155,8 +151,6 @@ class ConvergenceClubs:
         from .latex import clubs_table
 
         return clubs_table(self, **kwargs)
-
-    # -- transformations ----------------------------------------------------
 
     def merge(self, method: str = "PS", **kwargs) -> ConvergenceClubs:
         """Merge adjacent clubs; see :func:`convergence_clubs.merge_clubs`."""
@@ -239,8 +233,6 @@ class ConvergenceClubs:
 
     def _replace(self, **changes) -> ConvergenceClubs:
         return replace(self, **changes)
-
-    # -- display ------------------------------------------------------------
 
     def __repr__(self) -> str:
         kind = "merged " if self.is_merged else ""

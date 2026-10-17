@@ -126,7 +126,7 @@ class SensitivityResult:
         base = self._label_matrix[0]
         rows = []
         for (params, result), labels in zip(self.runs, self._label_matrix, strict=True):
-            present = labels != ABSENT  # agreement is measured on the units of this run
+            present = labels != ABSENT
             rows.append(
                 {
                     **{k: "none" if v is None else v for k, v in params.items()},

@@ -135,7 +135,7 @@ def test_map_option(tmp_path, capsys):
     gpd = pytest.importorskip("geopandas")
     from shapely.geometry import box
 
-    names = list(cc.load_filtered_gdp().index[:-1])  # leave one country out
+    names = list(cc.load_filtered_gdp().index[:-1])
     boxes = [box(i % 13, i // 13, i % 13 + 1, i // 13 + 1) for i in range(len(names))]
     geo = tmp_path / "regions.gpkg"
     gpd.GeoDataFrame({"name": names}, geometry=boxes, crs="EPSG:4326").to_file(geo)

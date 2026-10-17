@@ -52,8 +52,8 @@ def test_clubs_converge_while_the_panel_diverges(gdp, clubs):
     result = cc.sigma_convergence(gdp, clubs=clubs)
     trend = result.trend()
     assert list(trend.index) == ["all units", "club1", "club2", "club3", "club4", "club5"]
-    assert "club6" not in result.series  # 2 units: below min_units
-    assert not result.converges()  # the whole panel diverges
+    assert "club6" not in result.series
+    assert not result.converges()
     assert all(result.converges(c) for c in ["club1", "club2", "club3", "club4", "club5"])
     assert trend.loc["all units", "slope"] > 0
     assert trend["n_units"].tolist() == [152, 50, 30, 21, 38, 11]
@@ -90,5 +90,5 @@ def test_plot(gdp, clubs):
     indexed = result.plot(index=True, groups=["all units", "club1"], theme="dark")
     first = [ln.get_ydata()[0] for ln in indexed.get_lines() if ln.get_label() == "club1"]
     assert first == [pytest.approx(1.0)]
-    assert {t.get_text() for t in indexed.texts} == {"all units", "club1"}  # direct labels
+    assert {t.get_text() for t in indexed.texts} == {"all units", "club1"}
     plt.close("all")

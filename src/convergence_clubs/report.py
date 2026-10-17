@@ -29,12 +29,9 @@ if TYPE_CHECKING:
     from .results import Club
 
 
-# -- document model -------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class Paragraph:
-    text: str  # plain text; escaped when rendered
+    text: str
 
 
 @dataclass(frozen=True)
@@ -42,7 +39,6 @@ class Table:
     frame: pd.DataFrame
     caption: str = ""
     digits: int = 3
-    #: Tables longer than this are folded into an expandable block.
     fold_after: int = 15
 
 
@@ -92,9 +88,6 @@ class Report:
         return self.to_html()
 
 
-# -- rendering --------------------------------------------------------------------
-
-
 def _anchor(title: str) -> str:
     return "".join(c if c.isalnum() else "-" for c in title.lower()).strip("-")
 
@@ -127,7 +120,6 @@ def _cell(value: Any, digits: int) -> tuple[str, bool]:
 
 def _render_table(table: Table) -> str:
     frame = table.frame
-    # The index becomes the first column (named after the index, if it has a name).
     if isinstance(frame.index, pd.RangeIndex):
         frame = frame.reset_index(drop=True)
         columns = list(frame.columns)
@@ -198,9 +190,6 @@ def _image(
         return _png(out if hasattr(out, "savefig") else out.figure, dpi)
 
     return Image(render(theme), render(dark) if dark is not None else None, caption, alt)
-
-
-# -- the report -------------------------------------------------------------------
 
 
 def report(
@@ -303,7 +292,6 @@ def report(
     trim = clubs.time_trim
     periods = list(data.columns)
 
-    # 1. Data and settings
     transform = ("log, " if log else "") + (
         f"Hodrick-Prescott trend (lambda = {filter_lambda:g})" if filter_lambda else "no filter"
     )
@@ -352,7 +340,6 @@ def report(
         )
     ]
 
-    # 2. Whole panel
     overall = log_t_test(cross_sectional_variation(clustered.to_numpy()), trim, hac_method)
     verdict = "is not rejected" if overall.converges() else "is rejected"
     sections.append(
@@ -375,7 +362,6 @@ def report(
         )
     )
 
-    # 3. Clubs
     club_blocks: list[Paragraph | Table | Image] = [
         Paragraph(
             f"The clustering algorithm finds {clubs.n_clubs} clubs and {clubs.n_divergent} "
@@ -414,7 +400,6 @@ def report(
     ]
     sections.append(Section("Convergence clubs", club_blocks))
 
-    # 4. Robustness
     robust: list[Paragraph | Table | Image] = []
     if sensitivity:
         runs = run_sensitivity(
@@ -469,7 +454,6 @@ def report(
     if robust:
         sections.append(Section("Robustness", robust))
 
-    # 5-7. Classical convergence
     if beta:
         absolute = beta_convergence(levels, clubs=final)
         conditional = beta_convergence(levels, clubs=final, club_effects=True)
