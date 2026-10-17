@@ -27,6 +27,10 @@ if TYPE_CHECKING:
     from .sensitivity import SensitivityResult
 
 
+class MissingRegionWarning(UserWarning):
+    """Some units of the result have no region in the geodata, so they are not drawn."""
+
+
 def match_regions(
     result: ConvergenceClubs,
     geodata: Any,
@@ -107,7 +111,7 @@ def plot_map(
         warnings.warn(
             f"{len(missing)} units have no region in geodata: {', '.join(map(str, missing[:8]))}"
             f"{' ...' if len(missing) > 8 else ''} (see match_regions())",
-            UserWarning,
+            MissingRegionWarning,
             stacklevel=2,
         )
 

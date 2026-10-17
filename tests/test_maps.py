@@ -58,7 +58,7 @@ def test_match_regions(merged, squares):
 
 
 def test_map_colours_regions_by_club(merged, squares):
-    with pytest.warns(UserWarning, match="Netherlands Antilles"):
+    with pytest.warns(cc.MissingRegionWarning, match="Netherlands Antilles"):
         ax = merged.plot.map(squares, key="iso", names=cc.country_codes())
     fills = _fills(ax)
     # Ordinal by default: club 1, the highest level, gets the dark end of the ramp.
