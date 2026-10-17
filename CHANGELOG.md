@@ -53,6 +53,7 @@ All notable changes to this project are documented here. The format follows
 - Interactive plotly charts ([#17](https://github.com/bbanyuls/club-convergence/pull/17)) and maps of club membership ([#20](https://github.com/bbanyuls/club-convergence/pull/20)).
 - `report()`: a self-contained HTML replication appendix ([#23](https://github.com/bbanyuls/club-convergence/pull/23)).
 - Command-line tool `convergence-clubs`, covering every analysis.
+- `MissingRegionWarning` (a `UserWarning`): the map's warning about units with no region now has its own class, so it can be silenced without hiding other warnings.
 - Interactive charts: dashed club averages now scale their dash lengths by the drawn line width (they were about 20 % too short at the default width).
 
 ### Data

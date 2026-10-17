@@ -93,7 +93,8 @@ merged.plot.map(
 By default units are matched to regions by name. `names=` maps unit names to region keys when
 they differ; `cc.country_codes()` gives verified ISO3 codes for the bundled GDP data.
 `cc.match_regions()` lists which units were matched, and units with no region are reported
-in a warning rather than silently dropped. From the command line, use
+in a `cc.MissingRegionWarning` rather than silently dropped; filter that class alone to silence
+it without hiding other warnings. From the command line, use
 `--map clubs.png --geodata regions.gpkg --geo-key NAME`.
 
 ![World map of the merged clubs, darker for higher clubs; hatched countries have bootstrap stability below 0.8](../map.png)

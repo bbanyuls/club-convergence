@@ -25,7 +25,7 @@ from .logt import (
     log_t_test,
     relative_transition,
 )
-from .maps import match_regions, plot_map
+from .maps import MissingRegionWarning, match_regions, plot_map
 from .merging import merge_clubs, merge_divergent
 from .pairwise import (
     ADFResult,
@@ -95,6 +95,7 @@ __all__ = [
     "DynamicsResult",
     "KPSSResult",
     "LogTResult",
+    "MissingRegionWarning",
     "PairwiseResult",
     "Report",
     "RollingClubs",

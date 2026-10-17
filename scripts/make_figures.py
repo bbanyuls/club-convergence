@@ -75,7 +75,9 @@ def main() -> None:
     world = world[world["ADMIN"] != "Antarctica"]
     merged_boot = cc.bootstrap(cc.load_filtered_gdp(), 200, merge="PS", seed=0)
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)  # Netherlands Antilles has no polygon
+        warnings.simplefilter(
+            "ignore", cc.MissingRegionWarning
+        )  # Netherlands Antilles has no polygon
         ax = merged.plot.map(
             world, key="ISO_A3_EH", names=cc.country_codes(), crs="EPSG:8857",
             confidence=merged_boot,
