@@ -98,3 +98,18 @@ def test_plot(clubs, covariates):
     assert [t.get_text() for t in ax.get_yticklabels()] == ["africa", "log_tfp", "log_ky", "log_h"]
     assert "ordered logit" in ax.get_title(loc="left")
     plt.close("all")
+
+
+@pytest.mark.parametrize("n_classes", [2, 3, 6])
+def test_thresholds_jacobian_matches_finite_differences(n_classes):
+    from convergence_clubs.determinants import _thresholds, _thresholds_jacobian
+
+    k = 2
+    theta = np.random.default_rng(n_classes).normal(size=k + n_classes - 1)
+    step = 1e-6
+    numeric = np.empty((n_classes - 1, n_classes - 1))
+    for i in range(n_classes - 1):
+        e = np.zeros_like(theta)
+        e[k + i] = step
+        numeric[:, i] = (_thresholds(theta + e, k) - _thresholds(theta - e, k)) / (2 * step)
+    np.testing.assert_allclose(_thresholds_jacobian(theta, k), numeric, atol=1e-7)
