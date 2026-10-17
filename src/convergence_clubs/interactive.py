@@ -78,13 +78,13 @@ _PLOTLY_DASH = {"-": "solid", "solid": "solid", ":": "dot", "dotted": "dot"}
 _PLOTLY_DASH |= {"-.": "dashdot", "dashdot": "dashdot", "--": "dash", "dashed": "dash"}
 
 
-def _dash(style: dict[str, Any]) -> str:
+def _dash(style: dict[str, Any], width: float) -> str:
     """plotly ``dash`` for a matplotlib line style: named, or a dash pattern in points."""
     linestyle = style["linestyle"]
     if isinstance(linestyle, str):
         return _PLOTLY_DASH.get(linestyle, "dash")
-    _, pattern = linestyle  # in units of the line width, which plotly does not scale by
-    return ",".join(f"{2 * length:g}px" for length in pattern)
+    _, pattern = linestyle
+    return ",".join(f"{width * length:g}px" for length in pattern)
 
 
 def _x(columns: pd.Index) -> list:
@@ -157,7 +157,7 @@ def transition_paths_figure(
                     x=x, y=paths.mean(axis=0), mode="lines", name=html.escape(c.name),
                     legendgroup=c.name, showlegend=legend_once(c.name),
                     line={"color": style["color"], "width": 1.25 * th.line_width,
-                          "dash": _dash(style)},
+                          "dash": _dash(style, 1.25 * th.line_width)},
                     hovertemplate=(
                         f"<b>{html.escape(c.name)}</b> average · {len(c)} units<br>"
                         f"β = {c.model.beta:.3f}, t = {c.model.t_value:.2f}<br>"
