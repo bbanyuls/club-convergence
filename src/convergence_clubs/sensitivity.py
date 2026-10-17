@@ -21,13 +21,15 @@ if TYPE_CHECKING:
     from .results import ConvergenceClubs
 
 DIVERGENT = "divergent"
+#: Label of a divergent unit; clubs are numbered from 0.
+DIVERGENT_LABEL = -1
 #: Label of a unit that is not part of a run (e.g. left out of a bootstrap subsample).
 ABSENT = -2
 
 
 def _labels(result: ConvergenceClubs) -> np.ndarray:
-    """Club index of every unit, -1 for divergent units."""
-    labels = np.full(len(result.data), -1)
+    """Club index of every unit, ``DIVERGENT_LABEL`` for divergent units."""
+    labels = np.full(len(result.data), DIVERGENT_LABEL)
     for k, club in enumerate(result.clubs):
         labels[list(club.ids)] = k
     return labels
@@ -44,10 +46,10 @@ def _aligned_labels(result: ConvergenceClubs, units: pd.Index) -> np.ndarray:
 
 
 def _singletons(labels: np.ndarray) -> np.ndarray:
-    """Labels where every divergent unit (-1) is a group of its own."""
+    """Labels where every divergent unit is a group of its own."""
     labels = labels.copy()
     divergent = labels < 0
-    labels[divergent] = labels.max(initial=-1) + 1 + np.arange(divergent.sum())
+    labels[divergent] = labels.max(initial=DIVERGENT_LABEL) + 1 + np.arange(divergent.sum())
     return labels
 
 
@@ -104,7 +106,7 @@ class SensitivityResult:
 
     @cached_property
     def _label_matrix(self) -> np.ndarray:
-        """runs x units labels (club index, -1 divergent, ``ABSENT``)."""
+        """runs x units labels (club index, ``DIVERGENT_LABEL``, ``ABSENT``)."""
         return np.array([_aligned_labels(r, self.units) for _, r in self.runs])
 
     def __len__(self) -> int:
@@ -178,7 +180,7 @@ class SensitivityResult:
             if label >= 0 and shares.size:
                 stability[i] = shares.mean()
         n_runs = (labels != ABSENT).sum(axis=0)
-        divergent = (labels == -1).sum(axis=0) / n_runs
+        divergent = (labels == DIVERGENT_LABEL).sum(axis=0) / n_runs
         return pd.DataFrame(
             {
                 "baseline_club": self.baseline.memberships().to_numpy(),
