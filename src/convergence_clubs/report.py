@@ -200,6 +200,8 @@ def report(
     convention: str = "R",
     time_trim: float | None = None,
     hac_method: str = "FQSB",
+    cstar: float = 0.0,
+    sort_fraction: float = 0.0,
     merge: str | None = "PS",
     sensitivity: bool = True,
     bootstrap: int = 200,
@@ -227,7 +229,7 @@ def report(
     filter_lambda
         HP filter applied to the log series before clustering (``None`` to
         cluster the logs as they are).
-    convention, time_trim, hac_method, **find_kwargs
+    convention, time_trim, hac_method, cstar, sort_fraction, **find_kwargs
         Passed to :func:`find_clubs`.
     merge
         ``"PS"``, ``"vLT"`` or ``None``.
@@ -263,10 +265,6 @@ def report(
 
     if not matplotlib.is_interactive():
         matplotlib.use("Agg", force=False)
-    # These are lists in sensitivity(), so they are passed explicitly everywhere.
-    cstar = find_kwargs.pop("cstar", 0.0)
-    sort_fraction = find_kwargs.pop("sort_fraction", 0.0)
-
     logs = data.astype(float).transform(np.log) if log else data.astype(float)
     levels = data if log else data.astype(float).transform(np.exp)
     clustered = hp_filter(logs, lamb=filter_lambda) if filter_lambda is not None else logs
