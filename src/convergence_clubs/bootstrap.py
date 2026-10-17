@@ -109,7 +109,7 @@ def bootstrap(
             frame = pd.DataFrame(trend + cycle[:, periods], index=data.index, columns=data.columns)
             replicates.append(({"method": method, "replicate": i}, frame))
 
-    else:  # endpoint
+    elif method == "endpoint":
         if not 1 <= max_drop < data.shape[1] - 1:
             raise ValueError("max_drop must be between 1 and the number of periods - 2")
         for k in range(1, max_drop + 1):

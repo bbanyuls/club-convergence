@@ -79,7 +79,8 @@ def _ari(x: np.ndarray, y: np.ndarray) -> float:
     rows, cols = pairs(table.sum(axis=1)), pairs(table.sum(axis=0))
     expected = rows * cols / (n * (n - 1) / 2)
     maximum = (rows + cols) / 2
-    if maximum == expected:  # both partitions trivial (all singletons or a single group)
+    both_partitions_trivial = maximum == expected
+    if both_partitions_trivial:
         return 1.0 if np.array_equal(x == x[:, None], y == y[:, None]) else 0.0
     return float((index - expected) / (maximum - expected))
 
@@ -174,7 +175,8 @@ class SensitivityResult:
         for i, label in enumerate(base):
             mates = np.flatnonzero((base == label) & (np.arange(len(base)) != i))
             shares = share[i, mates]
-            shares = shares[np.isfinite(shares)]  # mates never sampled with the unit
+            co_sampled = np.isfinite(shares)
+            shares = shares[co_sampled]
             if label >= 0 and shares.size:
                 stability[i] = shares.mean()
         n_runs = (labels != ABSENT).sum(axis=0)

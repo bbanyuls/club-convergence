@@ -344,6 +344,8 @@ def _legend(ax: Axes, theme: Theme, **kwargs) -> None:
 
 
 _MAX_INLINE_ENTRIES = 4
+#: Smaller shares are left blank: a field of "0.00" hides the diagonal.
+_MIN_ANNOTATED_SHARE = 0.005
 
 
 def _place_legend(
@@ -1005,10 +1007,9 @@ def plot_transitions(
     k = result.n_classes
     _draw_cell_gaps(ax, th, k)
     if annotate:
-        # Only the non-empty cells: a field of "0.00" is noise that hides the diagonal.
         for i in range(k):
             for j in range(k):
-                if np.isfinite(P[i, j]) and P[i, j] >= 0.005:
+                if np.isfinite(P[i, j]) and P[i, j] >= _MIN_ANNOTATED_SHARE:
                     ax.text(j, i, f"{P[i, j]:.2f}", ha="center", va="center",
                             fontsize=th.font_size, color=_text_on(cmap(P[i, j]), th))  # fmt: skip
     for spine in (ax.spines[side] for side in ("top", "right", "bottom", "left")):
