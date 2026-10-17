@@ -31,9 +31,10 @@ def _club_labels(clubs: ConvergenceClubs | pd.Series, units: pd.Index) -> pd.Ser
 
 def _period_length(data: pd.DataFrame, start: Hashable, end: Hashable) -> float:
     """Years between ``start`` and ``end`` when periods are numbers, else number of periods."""
-    if pd.api.types.is_numeric_dtype(data.columns):
-        return float(end) - float(start)  # type: ignore[arg-type]
     positions = data.columns.get_indexer(pd.Index([start, end]))
+    if pd.api.types.is_numeric_dtype(data.columns):
+        years = data.columns.to_numpy(dtype=float)[positions]
+        return float(years[1] - years[0])
     return float(positions[1] - positions[0])
 
 
@@ -59,21 +60,24 @@ class BetaResult:
     controls: tuple[str, ...] = ()
     control_means: tuple[float, ...] = ()
 
+    def _initial(self, column: str) -> float:
+        return float(self.coefficients.loc[[INITIAL], column].to_numpy(dtype=float)[0])
+
     @property
     def beta(self) -> float:
-        return float(self.coefficients.at[INITIAL, "coef"])  # type: ignore[arg-type]
+        return self._initial("coef")
 
     @property
     def std_err(self) -> float:
-        return float(self.coefficients.at[INITIAL, "std_err"])  # type: ignore[arg-type]
+        return self._initial("std_err")
 
     @property
     def t_value(self) -> float:
-        return float(self.coefficients.at[INITIAL, "t_value"])  # type: ignore[arg-type]
+        return self._initial("t_value")
 
     @property
     def p_value(self) -> float:
-        return float(self.coefficients.at[INITIAL, "p_value"])  # type: ignore[arg-type]
+        return self._initial("p_value")
 
     @property
     def speed(self) -> float:
