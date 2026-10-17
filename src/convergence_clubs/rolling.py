@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     from .results import ConvergenceClubs
 
 DIVERGENT = "divergent"
+
+Direction = Literal["up", "down", "to divergent", "from divergent", "mates diverged"]
 
 
 @dataclass(frozen=True)
@@ -84,7 +86,8 @@ class RollingClubs:
         the unit goes elsewhere, it moved. ``direction`` is ``"up"`` (to a
         higher club than its mates), ``"down"``, ``"to divergent"``,
         ``"from divergent"`` (a divergent unit that joins a club) or
-        ``"mates diverged"``. ``mates_went_to`` is the club most of its mates
+        ``"mates diverged"`` (the unit stayed in a club but most of its mates
+        became divergent). ``mates_went_to`` is the club most of its mates
         went to.
         """
         members = self.memberships()
@@ -98,12 +101,13 @@ class RollingClubs:
                         continue
                     if target == DIVERGENT and club == DIVERGENT:
                         continue
+                    direction: Direction
                     if club == DIVERGENT:
                         direction = "from divergent"
                     elif target == DIVERGENT:
                         direction = "to divergent"
                     elif modal == DIVERGENT:
-                        direction = "mates diverged"  # it stayed in a club, most mates did not
+                        direction = "mates diverged"
                     else:
                         direction = "up" if rank[unit] < _club_rank(self[b], modal) else "down"
                     rows.append(
