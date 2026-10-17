@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -281,3 +282,15 @@ def test_spatial_option(tmp_path, capsys):
     assert "spatial clustering of the clubs" in capsys.readouterr().out
     assert main([str(csv), "--spatial"]) == 1
     assert "--spatial needs --geodata" in capsys.readouterr().err
+
+
+def test_levels_with_log_and_logs_without_it_give_the_same_analyses(tmp_path, capsys):
+    gdp = cc.load_filtered_gdp()
+    levels, logs = tmp_path / "levels.csv", tmp_path / "logs.csv"
+    gdp.to_csv(levels)
+    np.log(gdp).to_csv(logs)
+    analyses = ["--hp-filter", "400", "--beta", "--sigma", "--pairwise", "--dynamics"]
+    assert main([str(levels), "--log", *analyses]) == 0
+    from_levels = capsys.readouterr().out
+    assert main([str(logs), *analyses]) == 0
+    assert capsys.readouterr().out == from_levels

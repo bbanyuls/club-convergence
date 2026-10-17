@@ -67,12 +67,16 @@ def build_parser() -> argparse.ArgumentParser:
         metavar=("UNIT", "TIME", "VALUE"),
         help="the CSV is in long format (one row per unit and period) with these columns",
     )
-    data.add_argument("--log", action="store_true", help="take logs before filtering")
+    data.add_argument(
+        "--log",
+        action="store_true",
+        help="the file holds levels: take logs before filtering (otherwise it must hold logs)",
+    )
     data.add_argument(
         "--fill-gaps",
         type=int,
         metavar="N",
-        help="interpolate interior gaps of up to N periods (in logs with --log)",
+        help="interpolate interior gaps of up to N periods (in logs)",
     )
     data.add_argument(
         "--drop-incomplete", action="store_true", help="drop units that still have missing values"
@@ -270,7 +274,7 @@ class _Resolved(NamedTuple):
 
 
 def _read(args: argparse.Namespace) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """The data before HP filtering (but after logs) and the data to cluster."""
+    """The logs before HP filtering and the data to cluster."""
     if args.long:
         unit, time, value = args.long
         data = wide_panel(pd.read_csv(args.csv, sep=args.sep), unit=unit, time=time, value=value)
@@ -303,7 +307,7 @@ def _read(args: argparse.Namespace) -> tuple[pd.DataFrame, pd.DataFrame]:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        raw, data = _read(args)
+        logs, data = _read(args)
         options = {
             "cstar_method": args.cstar_method,
             "cstar_increment": args.cstar_increment,
@@ -360,7 +364,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         result.summary(members=args.members).to_csv(args.summary)
     steps: list[tuple[Any, str, Callable[[], object]]] = [
         (args.html, "interactive chart", lambda: _write_html(args, result)),
-        (args.report, "report", lambda: _write_report(args, raw, resolved)),
+        (args.report, "report", lambda: _write_report(args, logs, resolved)),
         (args.map, "map", lambda: _write_map(args, result)),
         (args.spatial, "spatial clustering", lambda: _report_spatial(args, result)),
         (args.plot, "plot", lambda: _write_plot(args, result)),
@@ -370,17 +374,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             "sensitivity analysis",
             lambda: _report_sensitivity(args, data, options, resolved),
         ),
-        (args.beta or args.beta_plot, "β-convergence", lambda: _report_beta(args, raw, result)),
-        (args.sigma or args.sigma_plot, "σ-convergence", lambda: _report_sigma(args, raw, result)),
+        (args.beta or args.beta_plot, "β-convergence", lambda: _report_beta(args, logs, result)),
+        (args.sigma or args.sigma_plot, "σ-convergence", lambda: _report_sigma(args, logs, result)),
         (args.determinants, "determinants", lambda: _report_determinants(args, result)),
-        (args.pairwise, "pairwise test", lambda: _report_pairwise(args, raw, result)),
+        (args.pairwise, "pairwise test", lambda: _report_pairwise(args, logs, result)),
         (
             args.dynamics or args.dynamics_plot,
             "distribution dynamics",
-            lambda: _report_dynamics(args, raw, result),
+            lambda: _report_dynamics(args, logs, result),
         ),
-        (args.bootstrap, "bootstrap", lambda: _report_bootstrap(args, raw, options, resolved)),
-        (args.rolling, "rolling windows", lambda: _report_rolling(args, raw, options, resolved)),
+        (args.bootstrap, "bootstrap", lambda: _report_bootstrap(args, logs, options, resolved)),
+        (args.rolling, "rolling windows", lambda: _report_rolling(args, logs, options, resolved)),
     ]
     for wanted, label, action in steps:
         if wanted and not _step(label, action):
@@ -411,10 +415,9 @@ def _write_plot(args: argparse.Namespace, result) -> None:
     figure.savefig(args.plot, dpi=args.dpi or 150)
 
 
-def _write_report(args: argparse.Namespace, raw: pd.DataFrame, resolved: _Resolved) -> None:
-    # raw holds the series before HP filtering (in logs with --log).
+def _write_report(args: argparse.Namespace, logs: pd.DataFrame, resolved: _Resolved) -> None:
     built = report(
-        raw,
+        logs,
         log=False,
         filter_lambda=args.hp_filter,
         convention=args.convention,
@@ -476,8 +479,8 @@ def _report_determinants(args: argparse.Namespace, result) -> None:
     print(fit.summary().to_string(float_format=lambda v: f"{v:.4f}"))
 
 
-def _report_pairwise(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
-    pw = pairwise_convergence(raw, log=not args.log, clubs=result, kpss=True, n_jobs=args.jobs)
+def _report_pairwise(args: argparse.Namespace, logs: pd.DataFrame, result) -> None:
+    pw = pairwise_convergence(logs, log=False, clubs=result, kpss=True, n_jobs=args.jobs)
     print(f"\npairwise convergence (Pesaran, 2007): ADF and KPSS on {len(pw.pairs)} gaps\n")
     print(pw.summary().to_string(float_format=lambda v: f"{v:.3f}"))
 
@@ -522,10 +525,9 @@ def _report_sensitivity(
         _figure(ax).savefig(args.sensitivity_plot, dpi=args.dpi or 150)
 
 
-def _report_beta(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
-    log = not args.log  # with --log the unfiltered data are already in logs
-    absolute = beta_convergence(raw, log=log, clubs=result)
-    conditional = beta_convergence(raw, log=log, clubs=result, club_effects=True)
+def _report_beta(args: argparse.Namespace, logs: pd.DataFrame, result) -> None:
+    absolute = beta_convergence(logs, log=False, clubs=result)
+    conditional = beta_convergence(logs, log=False, clubs=result, club_effects=True)
     print(f"\nβ-convergence {absolute.start}-{absolute.end} (HC1 standard errors)\n")
     for name, fit in [("absolute", absolute), ("conditional on clubs", conditional)]:
         life = f"{fit.half_life:.1f}" if fit.converges() else "n/a"
@@ -540,8 +542,8 @@ def _report_beta(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
         _figure(conditional.plot(theme=args.theme)).savefig(args.beta_plot, dpi=args.dpi or 150)
 
 
-def _report_sigma(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
-    sigma = sigma_convergence(raw, log=not args.log, clubs=result)
+def _report_sigma(args: argparse.Namespace, logs: pd.DataFrame, result) -> None:
+    sigma = sigma_convergence(logs, log=False, clubs=result)
     trend = sigma.trend()[["n_units", "first", "last", "change", "slope", "t_value", "p_value"]]
     print(f"\nσ-convergence (sd of log, Newey-West with {sigma.hac_lags} lags)\n")
     print(trend.to_string(float_format=lambda v: f"{v:.4f}"))
@@ -552,8 +554,8 @@ def _report_sigma(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
         )
 
 
-def _report_dynamics(args: argparse.Namespace, raw: pd.DataFrame, result) -> None:
-    levels = raw.transform(np.exp) if args.log else raw
+def _report_dynamics(args: argparse.Namespace, logs: pd.DataFrame, result) -> None:
+    levels = logs.transform(np.exp)
     dyn = distribution_dynamics(
         levels, n_classes=args.dynamics_classes, lag=args.dynamics_lag, clubs=result
     )
@@ -574,10 +576,10 @@ def _report_dynamics(args: argparse.Namespace, raw: pd.DataFrame, result) -> Non
 
 
 def _report_bootstrap(
-    args: argparse.Namespace, raw: pd.DataFrame, options: dict, resolved: _Resolved
+    args: argparse.Namespace, logs: pd.DataFrame, options: dict, resolved: _Resolved
 ) -> None:
     runs = bootstrap(
-        raw,
+        logs,
         args.bootstrap,
         method=args.bootstrap_method,
         filter_lambda=args.hp_filter,
@@ -604,10 +606,10 @@ def _report_bootstrap(
 
 
 def _report_rolling(
-    args: argparse.Namespace, raw: pd.DataFrame, options: dict, resolved: _Resolved
+    args: argparse.Namespace, logs: pd.DataFrame, options: dict, resolved: _Resolved
 ) -> None:
     rolled = rolling_clubs(
-        raw,
+        logs,
         args.rolling,
         step=args.rolling_step,
         filter_lambda=args.hp_filter,
