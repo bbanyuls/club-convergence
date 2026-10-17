@@ -35,7 +35,7 @@ def test_quantile_classes_and_counts_match_a_direct_loop(gdp):
     np.testing.assert_array_equal(d.counts.to_numpy(), counts)
     np.testing.assert_allclose(d.matrix.sum(axis=1), 1.0)
     pooled = np.bincount(classes.ravel(), minlength=4) / classes.size
-    np.testing.assert_allclose(pooled, 0.25, atol=0.01)  # quantile classes: equal shares
+    np.testing.assert_allclose(pooled, 0.25, atol=0.01)
 
 
 def test_non_overlapping_transitions(gdp):
@@ -113,7 +113,7 @@ def test_plots(gdp, merged):
     fig = d.plot()
     heat, bars = fig.axes[:2]
     nonzero = int((d.matrix.to_numpy() >= 0.005).sum())
-    assert 0 < len(heat.texts) == nonzero < 25  # empty cells stay blank
+    assert 0 < len(heat.texts) == nonzero < 25
     assert heat.texts[0].get_text() == f"{d.matrix.iloc[0, 0]:.2f}"
     assert {t.get_color() for t in heat.texts} <= {"#ffffff", "#0b0b0b"}
     assert [t.get_text() for t in bars.get_legend().get_texts()] == ["initial", "final", "ergodic"]

@@ -107,9 +107,6 @@ def test_sort_fraction_uses_statas_formula():
     assert data.index[first.ids[0]] in ranked.index[:3]
 
 
-# -- merging options, with a scripted log t test ---------------------------------
-
-
 @pytest.fixture
 def scripted(monkeypatch):
     """Clubs of four units each; ``converging`` lists which unions pass the test."""

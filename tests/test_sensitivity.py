@@ -77,7 +77,7 @@ def test_plot(runs):
     assert ax.get_title(loc="left") == f"Co-membership across {len(runs)} runs"
     assert [t.get_text() for t in ax.get_yticklabels()][:2] == ["club1", "club2"]
     small = cc.sensitivity(cc.load_filtered_gdp().iloc[:30], hac_method=["FQSB"])
-    assert len(small.plot(theme="dark").get_yticklabels()) == 30  # unit names
+    assert len(small.plot(theme="dark").get_yticklabels()) == 30
     plt.close("all")
 
 

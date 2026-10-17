@@ -208,7 +208,7 @@ def rolling_clubs(
         raise ValueError("step must be at least 1")
     starts = list(range(0, n_t - window + 1, step))
     if starts[-1] + window < n_t:
-        starts.append(n_t - window)  # always end with the last period
+        starts.append(n_t - window)
     windows = [_label(data.columns, s, s + window) for s in starts]
     settings = (filter_lambda, merge, merge_divergent, merge_options, find_kwargs)
     tasks = [(data.iloc[:, s : s + window], settings) for s in starts]

@@ -33,7 +33,7 @@ def _fills(ax):
     out = []
     for collection in ax.collections:  # one collection per layer, one path per polygon
         colors = collection.get_facecolors()
-        if not len(colors):  # an overlay without fill (the hatching)
+        if not len(colors):
             continue
         for i in range(len(collection.get_paths())):
             color = colors[i % len(colors)]
@@ -54,7 +54,7 @@ def test_match_regions(merged, squares):
     assert table["found"].sum() == 151
     assert list(table.index[~table["found"]]) == ["Netherlands Antilles"]
     by_name = cc.match_regions(merged, squares.set_index("iso"))
-    assert not by_name["found"].any()  # names are not ISO codes
+    assert not by_name["found"].any()
 
 
 def test_map_colours_regions_by_club(merged, squares):
@@ -69,7 +69,7 @@ def test_map_colours_regions_by_club(merged, squares):
     for club in merged:
         expected = sum(c != "ANT" for c in cc.country_codes()[list(merged.units(club.name))])
         assert sum(f == (shades[club.name], 1.0) for f in fills) == expected
-    assert sum(f[0] == cc.LIGHT.grid for f in fills) == 1  # "XXX": no data
+    assert sum(f[0] == cc.LIGHT.grid for f in fills) == 1
     labels = [t.get_text() for t in ax.get_legend().get_texts()]
     assert labels == [f"{c.name} ({len(c)})" for c in merged] + ["no data"]
 

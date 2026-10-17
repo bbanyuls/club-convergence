@@ -128,7 +128,7 @@ def test_gdp_panel(filtered_gdp):
     by_club = result.by_club()["share_rejected"]
     assert np.allclose(np.diag(shares.to_numpy()), by_club.reindex(shares.index).to_numpy())
 
-    ax = result.plot(theme="dark")  # club x club shares by default
+    ax = result.plot(theme="dark")
     assert [t.get_text() for t in ax.get_yticklabels()][0] == "club1"
     k = merged.n_clubs
     assert len(ax.texts) == k * (k + 1) // 2  # lower triangle only

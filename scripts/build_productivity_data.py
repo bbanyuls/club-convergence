@@ -36,7 +36,7 @@ def main(source: str) -> None:
         ["country", "year"], key=lambda s: s.str.lower() if s.name == "country" else s.astype(int)
     )
     out = Path(__file__).resolve().parent.parent / "src/convergence_clubs/data/productivity.csv"
-    data.to_csv(out, index=False)  # values are copied as text: no rounding
+    data.to_csv(out, index=False)
     print(f"wrote {out} ({len(data)} rows, {data['country'].nunique()} countries)")
 
 

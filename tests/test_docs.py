@@ -29,7 +29,7 @@ def _anchors(path: Path) -> set[str]:
 
 def _links(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
-    text = re.sub(r"```.*?```", "", text, flags=re.S)  # code blocks are not links
+    text = re.sub(r"```.*?```", "", text, flags=re.S)
     return [t for t in LINK.findall(text) if not re.match(r"[a-z]+:", t)]
 
 

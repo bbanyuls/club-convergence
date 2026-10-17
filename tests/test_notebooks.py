@@ -13,7 +13,6 @@ DOCS = Path(__file__).resolve().parent.parent / "docs"
 def _execute(name: str, tmp_path: Path):
     notebook = nbformat.read(DOCS / name, as_version=4)
     code = [cell for cell in notebook.cells if cell.cell_type == "code"]
-    # Committed with outputs so they read on GitHub; scripts/run_notebooks.py refreshes them.
     executed = all(cell.execution_count is not None for cell in code)
     assert executed, f"run scripts/run_notebooks.py to save the outputs of {name}"
     for cell in code:

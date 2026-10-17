@@ -37,7 +37,6 @@ def test_merge_divergent(aqsb):
     assert [len(c) for c in merged] == [84, 18, 40, 9]
     assert merged.n_divergent == 1
     assert any(c.notes for c in merged)
-    # Standalone call on unmerged clubs, too.
     assert cc.merge_divergent(aqsb).n_divergent <= aqsb.n_divergent
 
 
@@ -91,7 +90,6 @@ def test_hp_filter_shapes():
     x = np.linspace(0, 1, 20) ** 2 + np.sin(np.arange(20))
     assert cc.hp_filter(x).shape == (20,)
     assert cc.hp_filter(np.vstack([x, x])).shape == (2, 20)
-    # A linear trend passes through unchanged.
     line = np.arange(10, dtype=float)
     np.testing.assert_allclose(cc.hp_filter(line), line, atol=1e-9)
 
@@ -157,7 +155,6 @@ def test_rename(clubs):
     assert [c.name for c in partial][:2] == ["Frontier", "club2"]
     numbered = merged.rename(lambda club: f"Club {club.name[4:]} (n = {len(club)})")
     assert numbered[0].name == "Club 1 (n = 50)"
-    # The renamed result works everywhere names are used.
     beta = cc.beta_convergence(cc.load_gdp(), clubs=renamed, club_effects=True)
     assert "club[Low]" in beta.coefficients.index
 

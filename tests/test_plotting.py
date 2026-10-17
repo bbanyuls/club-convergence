@@ -124,7 +124,7 @@ def test_emphasis(merged):
 def test_direct_labels_only_when_they_fit(merged):
     ax = merged.plot.average(clubs=["club1", "club6"])
     assert {t.get_text() for t in ax.texts} == {"club1", "club6"}
-    ax = merged.plot.average()  # six clubs: legend only
+    ax = merged.plot.average()
     assert not ax.texts
 
 
@@ -219,7 +219,7 @@ def test_non_numeric_periods(filtered_gdp, columns):
     data.columns = columns
     result = cc.find_clubs(data)
     assert len(_visible(result.plot())) == 8
-    ax = result.plot.average(clubs=["club1", "club6"])  # direct labels at a date/label x
+    ax = result.plot.average(clubs=["club1", "club6"])
     assert {t.get_text() for t in ax.texts} == {"club1", "club6"}
     assert result.plot.variation().get_yscale() == "log"
 

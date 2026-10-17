@@ -22,10 +22,10 @@ def roll():
 
 
 def test_windows(roll):
-    assert roll.windows == ("1970–1989", "1977–1996", "1984–2003")  # the last ends in 2003
+    assert roll.windows == ("1970–1989", "1977–1996", "1984–2003")
     assert len(roll) == 3 and roll["1977–1996"] is roll[1]
     assert [r.data.shape[1] for r in roll.results] == [20, 20, 20]
-    default = cc.rolling_clubs(cc.load_filtered_gdp(), window=20)  # step 10, then the end
+    default = cc.rolling_clubs(cc.load_filtered_gdp(), window=20)
     assert default.windows == ("1970–1989", "1980–1999", "1984–2003")
     assert "3 windows" in repr(roll)
 

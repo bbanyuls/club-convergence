@@ -25,7 +25,7 @@ def test_transition_paths_traces_and_legend(merged):
     n_units = sum(len(c) for c in merged)
     assert len(fig.data) == n_units + 2 * merged.n_clubs  # units, club averages, average panel
     legend = [t.name for t in fig.data if t.showlegend]
-    assert legend == [c.name for c in merged]  # one legend entry per club
+    assert legend == [c.name for c in merged]
     styles = club_styles(merged)
     for trace in fig.data:
         assert trace.legendgroup in styles  # clicking a club toggles all of its traces
@@ -41,7 +41,7 @@ def test_average_only_uses_a_unified_crosshair(merged):
     fig = merged.plot.interactive(kind="average", theme="dark", clubs=["club1", "club3"])
     assert [t.name for t in fig.data] == ["club1", "club3"]
     assert fig.layout.hovermode == "x unified"
-    assert fig.data[1].line.color == cc.DARK.colors[2]  # colour follows the club
+    assert fig.data[1].line.color == cc.DARK.colors[2]
     assert fig.layout.plot_bgcolor == cc.DARK.surface
     assert "β =" in fig.data[0].hovertemplate
     with pytest.raises(ValueError, match="kind"):

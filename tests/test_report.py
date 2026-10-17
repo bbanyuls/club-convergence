@@ -40,7 +40,7 @@ def test_html_is_self_contained_and_escaped(built):
     html = built.to_html()
     assert html.startswith("<!DOCTYPE html>") and "</html>" in html
     assert "GDP &amp; &lt;clubs&gt;" in html and "<clubs>" not in html
-    assert "St. Kitts &amp; Nevis" in html  # unit names are escaped
+    assert "St. Kitts &amp; Nevis" in html
     assert not re.search(r'src="(?!data:)', html)  # no external resources
     images = re.findall(r'<img src="data:image/png;base64,', html)
     assert len(images) == 7

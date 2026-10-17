@@ -30,9 +30,6 @@ def merged(clubs):
     return clubs.merge("PS")
 
 
-# -- input validation ------------------------------------------------------------
-
-
 def test_find_clubs_validation(filtered_gdp):
     with pytest.raises(TypeError, match="DataFrame"):
         cc.find_clubs(filtered_gdp.to_numpy())
@@ -79,9 +76,6 @@ def test_results_must_cover_the_same_units(clubs):
         runs.co_membership()
 
 
-# -- numerical fallbacks ---------------------------------------------------------
-
-
 def test_incomplete_beta_bounds():
     assert _stats.betainc(2.0, 3.0, 0.0) == 0.0
     assert _stats.betainc(2.0, 3.0, 1.0) == 1.0
@@ -123,9 +117,6 @@ def test_ordered_model_recovers_from_a_singular_hessian(merged, monkeypatch):
     pd.testing.assert_frame_equal(fit, expected, rtol=1e-6)
 
 
-# -- results and robustness ------------------------------------------------------
-
-
 def test_results_without_clubs(clubs):
     empty = clubs._replace(clubs=(), divergent_ids=tuple(range(len(clubs.data))))
     assert empty.transition_paths().empty
@@ -146,9 +137,6 @@ def test_describe_missing_with_an_empty_unit():
     data.iloc[1] = np.nan
     table = cc.describe_missing(data)
     assert table.loc[data.index[1], "n_missing"] == data.shape[1]
-
-
-# -- plots -----------------------------------------------------------------------
 
 
 def test_club_panel_options(merged):
@@ -199,7 +187,7 @@ def test_beta_half_life_not_defined():
 
 def test_pairwise_unit_heatmaps():
     small = cc.pairwise_convergence(cc.load_gdp().iloc[:8])
-    ax = small.plot()  # no clubs: the unit heatmap, with names
+    ax = small.plot()
     assert len(ax.get_xticklabels()) == 8
     large = cc.pairwise_convergence(cc.load_gdp().iloc[:61])
     ax = large.plot()
