@@ -7,7 +7,7 @@ import sys
 import warnings
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 import numpy as np
 import pandas as pd
@@ -262,6 +262,13 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+class _Resolved(NamedTuple):
+    """What the first run settled on, for the steps that repeat it."""
+
+    time_trim: float
+    merge_options: dict[str, Any]
+
+
 def _read(args: argparse.Namespace) -> tuple[pd.DataFrame, pd.DataFrame]:
     """The data before HP filtering (but after logs) and the data to cluster."""
     if args.long:
@@ -318,14 +325,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         for w in caught:
             print(f"convergence-clubs: warning: {w.message}", file=sys.stderr)
-        args.time_trim = result.time_trim  # resolved from the convention
         merge_options = {
             "estar": args.estar,
             "joint_first": args.joint_divergent,
             "iterate": args.iterate_merge,
             "divergent_method": args.divergent_method,
         }
-        args.merge_options = merge_options
+        resolved = _Resolved(result.time_trim, merge_options)
         if args.merge:
             result = result.merge(args.merge, merge_divergent=args.merge_divergent, **merge_options)
         elif args.merge_divergent:
@@ -354,7 +360,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         result.summary(members=args.members).to_csv(args.summary)
     steps: list[tuple[Any, str, Callable[[], object]]] = [
         (args.html, "interactive chart", lambda: _write_html(args, result)),
-        (args.report, "report", lambda: _write_report(args, raw)),
+        (args.report, "report", lambda: _write_report(args, raw, resolved)),
         (args.map, "map", lambda: _write_map(args, result)),
         (args.spatial, "spatial clustering", lambda: _report_spatial(args, result)),
         (args.plot, "plot", lambda: _write_plot(args, result)),
@@ -362,7 +368,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         (
             args.sensitivity or args.sensitivity_plot,
             "sensitivity analysis",
-            lambda: _report_sensitivity(args, data, options),
+            lambda: _report_sensitivity(args, data, options, resolved),
         ),
         (args.beta or args.beta_plot, "β-convergence", lambda: _report_beta(args, raw, result)),
         (args.sigma or args.sigma_plot, "σ-convergence", lambda: _report_sigma(args, raw, result)),
@@ -373,8 +379,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "distribution dynamics",
             lambda: _report_dynamics(args, raw, result),
         ),
-        (args.bootstrap, "bootstrap", lambda: _report_bootstrap(args, raw, options)),
-        (args.rolling, "rolling windows", lambda: _report_rolling(args, raw, options)),
+        (args.bootstrap, "bootstrap", lambda: _report_bootstrap(args, raw, options, resolved)),
+        (args.rolling, "rolling windows", lambda: _report_rolling(args, raw, options, resolved)),
     ]
     for wanted, label, action in steps:
         if wanted and not _step(label, action):
@@ -405,14 +411,14 @@ def _write_plot(args: argparse.Namespace, result) -> None:
     figure.savefig(args.plot, dpi=args.dpi or 150)
 
 
-def _write_report(args: argparse.Namespace, raw: pd.DataFrame) -> None:
+def _write_report(args: argparse.Namespace, raw: pd.DataFrame, resolved: _Resolved) -> None:
     # raw holds the series before HP filtering (in logs with --log).
     built = report(
         raw,
         log=False,
         filter_lambda=args.hp_filter,
         convention=args.convention,
-        time_trim=args.time_trim,
+        time_trim=resolved.time_trim,
         hac_method=args.hac,
         merge=args.merge,
         bootstrap=args.bootstrap or 200,
@@ -489,16 +495,18 @@ def _club_names(args: argparse.Namespace) -> list[str] | None:
     return [name.strip() for name in args.club_names.split(";")]
 
 
-def _report_sensitivity(args: argparse.Namespace, data: pd.DataFrame, options: dict) -> None:
+def _report_sensitivity(
+    args: argparse.Namespace, data: pd.DataFrame, options: dict, resolved: _Resolved
+) -> None:
     runs = sensitivity(
         data,
-        time_trim=_unique([args.time_trim, 1 / 3, 0.25, 0.3, 0.4]),
+        time_trim=_unique([resolved.time_trim, 1 / 3, 0.25, 0.3, 0.4]),
         hac_method=_unique([args.hac, "FQSB", "AQSB"]),
         cstar=[args.cstar],
         merge=[args.merge],
         sort_fraction=[args.sort_fraction],
         merge_divergent=args.merge_divergent,
-        merge_options=args.merge_options,
+        merge_options=resolved.merge_options,
         n_jobs=args.jobs,
         **options,
     )
@@ -565,7 +573,9 @@ def _report_dynamics(args: argparse.Namespace, raw: pd.DataFrame, result) -> Non
         dyn.plot(theme=args.theme).savefig(args.dynamics_plot, dpi=args.dpi or 150)
 
 
-def _report_bootstrap(args: argparse.Namespace, raw: pd.DataFrame, options: dict) -> None:
+def _report_bootstrap(
+    args: argparse.Namespace, raw: pd.DataFrame, options: dict, resolved: _Resolved
+) -> None:
     runs = bootstrap(
         raw,
         args.bootstrap,
@@ -573,10 +583,10 @@ def _report_bootstrap(args: argparse.Namespace, raw: pd.DataFrame, options: dict
         filter_lambda=args.hp_filter,
         merge=args.merge,
         merge_divergent=args.merge_divergent,
-        merge_options=args.merge_options,
+        merge_options=resolved.merge_options,
         seed=args.seed,
         n_jobs=args.jobs,
-        time_trim=args.time_trim,
+        time_trim=resolved.time_trim,
         hac_method=args.hac,
         cstar=args.cstar,
         sort_fraction=args.sort_fraction,
@@ -593,7 +603,9 @@ def _report_bootstrap(args: argparse.Namespace, raw: pd.DataFrame, options: dict
         print(uncertain.head(20).to_string(float_format=lambda v: f"{v:.2f}"))
 
 
-def _report_rolling(args: argparse.Namespace, raw: pd.DataFrame, options: dict) -> None:
+def _report_rolling(
+    args: argparse.Namespace, raw: pd.DataFrame, options: dict, resolved: _Resolved
+) -> None:
     rolled = rolling_clubs(
         raw,
         args.rolling,
@@ -601,9 +613,9 @@ def _report_rolling(args: argparse.Namespace, raw: pd.DataFrame, options: dict) 
         filter_lambda=args.hp_filter,
         merge=args.merge,
         merge_divergent=args.merge_divergent,
-        merge_options=args.merge_options,
+        merge_options=resolved.merge_options,
         n_jobs=args.jobs,
-        time_trim=args.time_trim,
+        time_trim=resolved.time_trim,
         hac_method=args.hac,
         cstar=args.cstar,
         sort_fraction=args.sort_fraction,
