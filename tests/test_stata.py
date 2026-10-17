@@ -85,16 +85,28 @@ def test_convention_defaults():
         cc.find_clubs(data, core_rule="median")
 
 
-def test_trimming_rounds_half_up_in_stata():
-    assert trimmed_periods(35, 0.3) == 10  # half to even, as R
-    assert trimmed_periods(35, 0.3, "half_up") == 11  # as Stata's round()
-    assert trimmed_periods(34, 1 / 3) == trimmed_periods(34, 1 / 3, "half_up") == 11
+@pytest.mark.parametrize(
+    ("rounding", "trimmed", "kept"),
+    [
+        pytest.param("half_even", 10, 25, id="R-half-even"),
+        pytest.param("half_up", 11, 24, id="Stata-half-up"),
+    ],
+)
+def test_trimming_rounds_as_the_reference_implementation(rounding, trimmed, kept):
+    # 0.3 * 35 = 10.5 is a tie, so the two conventions disagree.
+    assert trimmed_periods(35, 0.3, rounding) == trimmed
     H = np.linspace(1, 0.2, 35) + 0.01 * np.sin(np.arange(35))
-    r = cc.log_t_test(H, 0.3)
-    s = cc.log_t_test(H, 0.3, rounding="half_up")
-    x_r, _ = cc.log_t_regression_data(H, 0.3)
-    x_s, _ = cc.log_t_regression_data(H, 0.3, "half_up")
-    assert len(x_r) == 25 and len(x_s) == 24 and r.t_value != s.t_value
+    x, _ = cc.log_t_regression_data(H, 0.3, rounding)
+    assert len(x) == kept
+
+
+def test_trimming_conventions_agree_away_from_a_tie():
+    assert trimmed_periods(34, 1 / 3) == trimmed_periods(34, 1 / 3, "half_up") == 11
+
+
+def test_trimming_convention_changes_the_log_t_statistic():
+    H = np.linspace(1, 0.2, 35) + 0.01 * np.sin(np.arange(35))
+    assert cc.log_t_test(H, 0.3).t_value != cc.log_t_test(H, 0.3, rounding="half_up").t_value
 
 
 def test_sort_fraction_uses_statas_formula():
@@ -136,8 +148,9 @@ def scripted(monkeypatch):
 
 def test_iterate_repeats_the_merging_pass(scripted):
     base, converging = scripted
-    # Pass 1: 1+2 and 3+4 merge, (1,2)+3 does not; pass 2: (1,2)+(3,4) does.
-    converging |= {frozenset({1, 2}), frozenset({3, 4}), frozenset({1, 2, 3, 4})}
+    first_pass = {frozenset({1, 2}), frozenset({3, 4})}
+    second_pass = {frozenset({1, 2, 3, 4})}
+    converging |= first_pass | second_pass
     once = base.merge("PS")
     assert [c.merged_from for c in once] == [("club1", "club2"), ("club3", "club4")]
     repeated = base.merge("PS", iterate=True)
@@ -147,7 +160,8 @@ def test_iterate_repeats_the_merging_pass(scripted):
 
 def test_last_club_absorbs_all_divergent_units(scripted):
     base, converging = scripted
-    converging |= {frozenset({4, 0})}
+    club4_with_divergent = frozenset({4, 0})
+    converging.add(club4_with_divergent)
     merged = base.merge("PS", merge_divergent=True, divergent_method="last_club")
     assert merged.n_divergent == 0 and merged.n_clubs == 4
     assert merged["club4"].merged_from == ("club4", "divergent")
