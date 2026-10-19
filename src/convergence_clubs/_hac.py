@@ -67,32 +67,40 @@ def _ar1_fit(u: np.ndarray) -> tuple[float, float]:
     return float(coef[1]), float(np.sqrt(resid @ resid / y.size))
 
 
-def andrews_qs_vcov(design: np.ndarray, resid: np.ndarray, tol: float = 1e-7) -> np.ndarray:
-    """HAC covariance matrix of OLS coefficients, like ``sandwich::vcovHAC``.
+def _andrews_bandwidth(scores: np.ndarray) -> float | None:
+    """Andrews' AR(1) plug-in bandwidth, or ``None`` when it is undefined or not positive.
 
-    ``design`` must have the intercept in its first column; following
-    ``sandwich::bwAndrews``, the intercept gets zero weight when choosing the
-    bandwidth.
+    The intercept (first column) gets zero weight, as in ``sandwich::bwAndrews``.
+    A perfect AR(1) fit (sigma = 0, tiny samples) gives 0/0, which is the undefined case.
     """
-    n, k = design.shape
-    scores = design * resid[:, None]
-
+    n, k = scores.shape
     rho, sigma = np.array([_ar1_fit(scores[:, j]) for j in range(k)]).T
     col_weights = np.ones(k)
     col_weights[0] = 0.0
-    # A perfect AR(1) fit (sigma = 0, tiny samples) gives 0/0: handled by the fallback below.
     with np.errstate(divide="ignore", invalid="ignore"):
         denom = np.sum(col_weights * (sigma / (1 - rho)) ** 4)
         alpha2 = np.sum(col_weights * 4 * rho**2 * sigma**4 / (1 - rho) ** 8) / denom
         bandwidth = 1.3221 * (n * alpha2) ** 0.2
+    return float(bandwidth) if bandwidth > 0 and np.isfinite(bandwidth) else None
 
-    if bandwidth > 0 and np.isfinite(bandwidth):
+
+def andrews_qs_vcov(design: np.ndarray, resid: np.ndarray, tol: float = 1e-7) -> np.ndarray:
+    """HAC covariance matrix of OLS coefficients, like ``sandwich::vcovHAC``.
+
+    ``design`` must have the intercept in its first column. Where
+    ``sandwich`` errors for lack of a bandwidth, this falls back to White's
+    estimator, which is more useful.
+    """
+    n, k = design.shape
+    scores = design * resid[:, None]
+
+    bandwidth = _andrews_bandwidth(scores)
+    if bandwidth is None:
+        weights = np.ones(1)
+    else:
         weights = _qs_weights(np.arange(n) / bandwidth)
         keep = np.nonzero(np.abs(weights) > tol)[0]
         weights = weights[: int(keep[-1]) + 1] if keep.size else np.ones(1)
-    else:
-        # sandwich errors out here; falling back to White's estimator is more useful.
-        weights = np.ones(1)
 
     utu = 0.5 * weights[0] * scores.T @ scores
     for lag, w in enumerate(weights[1:], start=1):
