@@ -522,14 +522,12 @@ def plot_average_paths(
         ax.axhline(1.0, color=th.baseline, linewidth=1, zorder=1)
     selected = _select(result, clubs)
     entries = []
-    muted_label = "other clubs"
+    handles = []
+    muted_handles = []
     for c in selected:
         mean = h[list(c.ids)].mean(axis=0)
         muted = emphasised is not None and c.name not in emphasised
-        # Muted clubs all look alike, so they share a single legend entry.
-        label = c.name
-        if muted:
-            label, muted_label = muted_label, "_nolegend_"
+        label = "_nolegend_" if muted else c.name
         kws = {
             **styles[c.name],
             "linewidth": th.line_width,
@@ -541,8 +539,11 @@ def plot_average_paths(
             ),
             **(line_kws or {}),
         }
-        ax.plot(x, mean, label=label, zorder=2 if muted else 3, **kws)
-        if not muted:
+        (line,) = ax.plot(x, mean, label=label, zorder=2 if muted else 3, **kws)
+        if muted:
+            muted_handles.append(line)
+        else:
+            handles.append(line)
             _end_dot(ax, th, x[-1], mean[-1], kws["color"])
             entries.append((c.name, mean[-1]))
 
@@ -550,9 +551,10 @@ def plot_average_paths(
     if direct_labels is True or (direct_labels == "auto" and len(entries) <= _MAX_INLINE_ENTRIES):
         _end_labels(ax, th, x[-1], entries)
     if legend and len(selected) > 1:
-        # Emphasised clubs first, then the shared entry of the muted ones.
-        handles = [ln for ln in ax.get_lines() if not str(ln.get_label()).startswith("_")]
-        handles.sort(key=lambda ln: ln.get_label() == "other clubs")
+        if muted_handles:
+            # Muted clubs all look alike, so the first stands for them all.
+            muted_handles[0].set_label("other clubs")
+            handles.append(muted_handles[0])
         _place_legend(ax, th, len(handles), handles=handles)
     _decorate(ax, th, title, ylabel)
     return ax
