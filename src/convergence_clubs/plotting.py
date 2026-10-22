@@ -14,7 +14,7 @@ import math
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -1380,8 +1380,13 @@ def _hex_alpha(color: str, alpha: float) -> tuple[float, float, float, float]:
     return (*to_rgb(color), alpha)
 
 
-def _rolling_layout(result: RollingClubs, gap: float) -> tuple[list[dict], float]:
-    """Vertical extent (bottom, top) of every club bar, window by window, on a 0-1 scale."""
+class _Bar(NamedTuple):
+    bottom: float
+    top: float
+
+
+def _rolling_layout(result: RollingClubs, gap: float) -> tuple[list[dict[str, _Bar]], float]:
+    """Vertical extent of every club bar, window by window, on a 0-1 scale."""
     members = result.memberships()
     n_units = len(members)
     most = max(r.n_clubs + (r.n_divergent > 0) for r in result.results)
@@ -1393,7 +1398,7 @@ def _rolling_layout(result: RollingClubs, gap: float) -> tuple[list[dict], float
         extents, top = {}, 1.0
         for group in groups:
             height = counts.get(group, 0) * scale
-            extents[group] = (top - height, top)
+            extents[group] = _Bar(top - height, top)
             top -= height + gap
         layout.append(extents)
     return layout, scale
@@ -1445,8 +1450,8 @@ def plot_rolling(
     for i in range(len(result) - 1):
         a, b = result.windows[i], result.windows[i + 1]
         flows = members.groupby([members[a], members[b]]).size().to_dict()
-        source_top = {g: top for g, (_, top) in layout[i].items()}
-        target_top = {g: top for g, (_, top) in layout[i + 1].items()}
+        source_top = {g: bar.top for g, bar in layout[i].items()}
+        target_top = {g: bar.top for g, bar in layout[i + 1].items()}
         x0, x1 = i + half, i + 1 - half
         middle = (x0 + x1) / 2
         for ga in layout[i]:  # sources top to bottom, then targets top to bottom
