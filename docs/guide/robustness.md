@@ -97,17 +97,18 @@ in several processes (`-1` uses every CPU, `-2` all but one; the default `1` run
 All random draws are made before the work is split, so the result is the same for any
 `n_jobs`; the tests check this. In the command line, use `--jobs N`.
 
-Measured on a 12-core laptop with a synthetic panel of 1,000 units and 40 periods:
+Median of 5 alternating runs on a 12-core laptop, with a synthetic panel of 1,000 units and 40 periods
+(`scripts/benchmark_jobs.py`; timings vary with the panel, mainly for `bootstrap`):
 
 | Call | `n_jobs=1` | `n_jobs=-1` |
 |---|---|---|
-| `bootstrap(data, 100)` | 5.5 s | 1.0 s |
-| `sensitivity(data)` (8 runs) | 1.3 s | 0.6 s |
+| `bootstrap(data, 100)` | 9.8 s | 1.5 s |
+| `sensitivity(data)` (8 runs) | 1.6 s | 0.5 s |
 | `pairwise_convergence` on 400 units (79,800 pairs) | 3.7 s | 0.9 s |
 
 The pairwise test grows with the square of the number of units, so it matters most there.
 Each ADF test chooses its lag from up to 13 nested regressions; one QR decomposition gives all
-of them, which made the test 3.5 times faster than fitting each regression (14 s → 3.7 s on
+of them, which made the test about 3.7 times faster than fitting each regression (14.7 s → 3.9 s on
 the 400 units above). The results do not change: they match statsmodels' `adfuller` on 2,000
 GDP gaps.
 
