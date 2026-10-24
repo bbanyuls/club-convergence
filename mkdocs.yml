@@ -1,0 +1,65 @@
+site_name: club-convergence
+site_description: Phillips-Sul convergence clubs in Python, a port of the R package ConvergenceClubs
+site_url: https://bbanyuls.github.io/club-convergence/
+repo_url: https://github.com/bbanyuls/club-convergence
+repo_name: bbanyuls/club-convergence
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle: {icon: material/weather-night, name: Dark mode}
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle: {icon: material/weather-sunny, name: Light mode}
+
+nav:
+  - Home: README.md
+  - Start here:
+      - Feature tour: feature-tour.ipynb
+      - Tutorial: tutorial.ipynb
+      - Choosing the settings: guide/choosing-settings.md
+  - Guides:
+      - The method: guide/method.md
+      - Finding clubs: guide/clubs.md
+      - Robustness: guide/robustness.md
+      - Classical measures: guide/classical.md
+      - Plots and maps: guide/plots.md
+      - Report and command line: guide/report-and-cli.md
+      - Validation: guide/validation.md
+      - References: guide/references.md
+  - API reference: api.md
+  - Example report: report-example.html
+
+plugins:
+  - search
+  - mkdocs-jupyter:
+      execute: false
+      include_source: true
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            show_root_heading: true
+            show_source: false
+            members_order: source
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.superfences
+
+extra_javascript:
+  - mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js

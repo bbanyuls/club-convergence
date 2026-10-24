@@ -2,7 +2,7 @@
 
 How stable are the clubs when the settings or the data change?
 
-[← Back to the README](../../README.md)
+[← Back to the README](../README.md)
 
 ## Sensitivity analysis
 

@@ -1,6 +1,6 @@
 # References
 
-[← Back to the README](../../README.md)
+[← Back to the README](../README.md)
 
 - Phillips, P. C. B. and Sul, D. (2007). Transition modeling and econometric convergence
   tests. *Econometrica*, 75(6), 1771-1855.

@@ -83,10 +83,13 @@ In Jupyter, results display as tables.
 
 ## Learn more
 
+The documentation is at **<https://bbanyuls.github.io/club-convergence/>**, with the API reference.
+
 | | |
 |---|---|
 | [**Feature tour**](docs/feature-tour.ipynb) | Every feature, with its output — the quickest way to see what the package does |
 | [**Tutorial**](docs/tutorial.ipynb) | A complete analysis, explaining how to read each result |
+| [The method](docs/guide/method.md) | The log t test, the clustering algorithm and merging, with the equations |
 | [Choosing the settings](docs/guide/choosing-settings.md) | HP filter, `time_trim`, `c*`, HAC errors, merging, R or Stata, and how much each matters |
 | [Finding clubs](docs/guide/clubs.md) | Bundled data, input and missing values, sorting, failing clubs, renaming, R and Stata conventions |
 | [Robustness](docs/guide/robustness.md) | Sensitivity analysis, bootstrap confidence, clubs over time, large panels |
