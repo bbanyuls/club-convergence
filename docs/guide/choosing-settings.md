@@ -5,7 +5,7 @@ rule, and how much each choice matters. The numbers are from the bundled GDP dat
 (152 countries, 1970–2003); `sensitivity()` and `bootstrap()` give the same information for
 your data.
 
-[← Back to the README](../../README.md)
+[← Back to the README](../README.md)
 
 ## Summary
 

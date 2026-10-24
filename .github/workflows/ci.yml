@@ -46,3 +46,12 @@ jobs:
       - name: Installed versions
         run: uv pip list | grep -iE "^(numpy|pandas|matplotlib|geopandas|plotly) "
       - run: .venv/bin/python -m pytest
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - run: uv run --group docs mkdocs build --strict

@@ -1,6 +1,6 @@
 # The report and the command line
 
-[← Back to the README](../../README.md)
+[← Back to the README](../README.md)
 
 ## The report: every analysis in one file
 

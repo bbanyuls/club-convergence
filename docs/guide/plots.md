@@ -1,6 +1,6 @@
 # Plots, interactive charts and maps
 
-[← Back to the README](../../README.md)
+[← Back to the README](../README.md)
 
 ## Plots
 

@@ -20,6 +20,7 @@ All notable changes to this project are documented here. The format follows
   - `kq(0.3)` trimming, with [rT] rounded half up.
 
   `merge_clubs(iterate=True)` and `divergent_method="last_club"` follow `imergeclub`. Validated on all 8 Stata classifications of Mendez (2020) ([#21](https://github.com/bbanyuls/club-convergence/pull/21)).
+- Documentation site (mkdocs-material, API reference from the docstrings, both notebooks) built in CI and deployed to GitHub Pages, plus a page on the method with its equations.
 - Warning (`ClubConvergenceWarning`) and `converges` flags for clubs that fail their own log t test ([#12](https://github.com/bbanyuls/club-convergence/pull/12)).
 - `merge_divergent(joint_first=True)`, step 1 of von Lyncker and Thoennissen (2017) ([#12](https://github.com/bbanyuls/club-convergence/pull/12)).
 - `ConvergenceClubs.rename()` gives the clubs meaningful names in every table, plot and report; also `report(club_names=...)` and `--club-names`.

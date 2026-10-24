@@ -1,6 +1,6 @@
 # Validation against R and Stata
 
-[← Back to the README](../../README.md)
+[← Back to the README](../README.md)
 
 ## API correspondence with the R package
 

@@ -8,6 +8,7 @@
 
 | Guides | |
 |---|---|
+| [The method](guide/method.md) | The log t test, the clustering algorithm and merging, with the equations |
 | [Finding clubs](guide/clubs.md) | Bundled data, input and missing values, sorting, failing clubs, renaming, R and Stata conventions |
 | [Robustness](guide/robustness.md) | Sensitivity analysis, bootstrap confidence, clubs over time, large panels |
 | [β, σ, dynamics, pairwise tests and determinants](guide/classical.md) | The classical measures and the ordered logit of club membership |

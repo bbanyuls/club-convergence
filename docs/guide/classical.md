@@ -2,7 +2,7 @@
 
 Classical convergence measures that complement the clubs, and what explains club membership.
 
-[← Back to the README](../../README.md)
+[← Back to the README](../README.md)
 
 ## β-convergence
 
