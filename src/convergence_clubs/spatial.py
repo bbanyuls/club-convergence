@@ -42,6 +42,8 @@ def neighbours(
         testing contact, to close small gaps between boundaries drawn at
         different resolutions.
 
+    Notes
+    -----
     Units without a region, or without neighbours (islands), get an empty
     list.
     """
@@ -183,6 +185,8 @@ def spatial_clustering(
     geodata, key, names, contiguity, tolerance
         Build the neighbours from region boundaries; see :func:`neighbours`.
 
+    Notes
+    -----
     Units with no neighbours (islands, or no region) do not enter any join,
     but keep their label in the permutations. Divergent units count as a
     group of their own.

@@ -89,6 +89,8 @@ def to_latex(
     path
         Also write the table to this file.
 
+    Notes
+    -----
     Cells are escaped, negative numbers get a proper minus sign, booleans
     become yes/no and missing values stay empty.
     """

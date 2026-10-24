@@ -96,6 +96,8 @@ def plot_map(
     show_missing
         Draw regions without data in a light neutral fill.
 
+    Notes
+    -----
     Units that are not found in ``geodata`` are reported with a warning (see
     :func:`match_regions`); divergent units are drawn in muted grey.
     """
