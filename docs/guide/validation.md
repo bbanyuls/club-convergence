@@ -47,6 +47,10 @@ and all 8 merged classifications are reproduced exactly. The fixture is rebuilt 
 - With `cstar_method="incremental"`, if `c*` exceeds `cstar_cap`, the club falls back to
   its core group. R then reports the regression of the core *plus the rejected candidates*.
   This Python port reports the core group's own regression. Memberships are the same.
+- `merge("vLT")` runs its second test (the club against the next one) with the clubs' HAC
+  method. R 2.2.5 omits `HACmethod` there, so it always uses FQSB. On the GDP data the
+  merges are the same either way
+  ([upstream report](https://github.com/rhobis/ConvergenceClubs/issues/6)).
 - If the Andrews bandwidth is zero (residual scores with no autocorrelation), `sandwich`
   raises an error. This port falls back to White's estimator.
 
@@ -54,6 +58,5 @@ and all 8 merged classifications are reproduced exactly. The fixture is rebuilt 
   Thoennissen (2017) procedure: test all divergent units together, and make them a new club
   if they converge. The R package skips this step, so it is off by default.
 
-Some other quirks are kept on purpose so that results stay identical to R:
-- the fixed-bandwidth HAC estimator follows Phillips and Sul's GAUSS code;
-- the vLT comparison test always uses the FQSB estimator.
+Another quirk is kept on purpose so that results stay identical to R: the fixed-bandwidth
+HAC estimator follows Phillips and Sul's GAUSS code.

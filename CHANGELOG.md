@@ -13,6 +13,7 @@ All notable changes to this project are documented here. The format follows
   - PS and vLT merging, and merging of divergent units.
 
   It matches R to within 1e-8, validated against fixtures generated with R and against the R Journal paper ([#1](https://github.com/bbanyuls/club-convergence/pull/1)).
+  Two deliberate differences from R 2.2.5, both reported upstream ([rhobis/ConvergenceClubs#6](https://github.com/rhobis/ConvergenceClubs/issues/6)): at the `c*` cap a club reports its core's own regression, and the second vLT test uses the clubs' HAC method instead of always FQSB.
 - `convention="Stata"` reproduces `psecta`/`imergeclub` (Du, 2018):
   - core group by the largest t;
   - `c*` raised automatically;
