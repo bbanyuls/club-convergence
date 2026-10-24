@@ -92,3 +92,19 @@ def test_merge_clubs(case, datasets):
     args = case["args"]
     merged = _find(datasets, args).merge(args["method"], merge_divergent=args["merge_divergent"])
     _assert_clubs(merged, case, incremental=args["cstar_method"] == "incremental")
+
+
+@pytest.mark.parametrize("hac_method", ["FQSB", "AQSB"])
+def test_vlt_comparison_uses_the_clubs_hac_method(hac_method, filtered_gdp, monkeypatch):
+    # R 2.2.5 runs the second vLT test with FQSB whatever the clubs use; we follow the fix.
+    from convergence_clubs import merging
+
+    seen = []
+    real = merging.log_t_test
+    monkeypatch.setattr(
+        merging,
+        "log_t_test",
+        lambda H, trim, hac, *args: seen.append(hac) or real(H, trim, hac, *args),
+    )
+    cc.find_clubs(filtered_gdp, hac_method=hac_method).merge("vLT")
+    assert set(seen) == {hac_method}

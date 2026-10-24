@@ -13,12 +13,10 @@ MergeMethod = Literal["PS", "vLT"]
 DivergentMethod = Literal["pairwise", "last_club"]
 
 
-def _test(
-    result: ConvergenceClubs, ids, time_trim: float, hac_method: str | None = None
-) -> LogTResult:
+def _test(result: ConvergenceClubs, ids, time_trim: float) -> LogTResult:
     H = cross_sectional_variation(result.values[list(ids)])
     rounding = result.params.get("rounding", "half_even")
-    return log_t_test(H, time_trim, hac_method or result.hac_method, rounding)
+    return log_t_test(H, time_trim, result.hac_method, rounding)
 
 
 def _origins(club: Club) -> tuple[str, ...]:
@@ -47,10 +45,8 @@ def _merge_pass(
             t = _test(result, ids + list(clubs[k].ids), time_trim).t_value
             if t > threshold:
                 if method == "vLT" and k < n - 1:
-                    # The R package runs this comparison test with the default
-                    # FQSB bandwidth whatever hac_method is; kept for parity.
                     nxt = list(clubs[k].ids) + list(clubs[k + 1].ids)
-                    if not t > _test(result, nxt, time_trim, "FQSB").t_value:
+                    if not t > _test(result, nxt, time_trim).t_value:
                         break
                 ids += clubs[k].ids
                 names += _origins(clubs[k])
