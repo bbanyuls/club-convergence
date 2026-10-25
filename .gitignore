@@ -13,3 +13,6 @@ dist/
 htmlcov/
 site/
 .cache/
+
+# Manuscript build output
+paper/jss/*.pdf
