@@ -8,13 +8,27 @@ It stops with an AssertionError if a number differs from the published one, and
 prints the tables the manuscript quotes. It takes a few seconds.
 """
 
+import warnings
 from pathlib import Path
 
+import matplotlib
+
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd
 
-import convergence_clubs as cc
+import convergence_clubs as cc  # noqa: E402
 
+FIGURES = Path(__file__).resolve().parent / "figures"
 FIXTURE = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "mendez2020_stata.csv"
+
+
+def figure(fig, name):
+    FIGURES.mkdir(exist_ok=True)
+    fig.savefig(FIGURES / name, bbox_inches="tight")
+    plt.close(fig)
+    print("wrote", FIGURES / name)
 
 
 def section(title):
@@ -38,6 +52,7 @@ def r_journal():
     merged = clubs.merge("PS")
     print(merged.summary())
     assert len(merged) == 6
+    figure(merged.plot(ncols=3), "transition_paths.pdf")
     return data
 
 
@@ -82,12 +97,14 @@ def robustness(data):
 
     section("4. Bootstrap confidence in each membership")
     boot = cc.bootstrap(data, 200, merge="PS", seed=0)
+    figure(boot.plot_stability().figure, "bootstrap_stability.pdf")
     uncertain = boot.uncertain(0.8)
     print(f"{len(uncertain)} of {data.shape[0]} units below 80% confidence")
     print(uncertain.head(10))
 
 
 def main():
+    warnings.simplefilter("ignore", cc.ClubConvergenceWarning)
     data = r_journal()
     stata()
     robustness(data)
