@@ -60,11 +60,15 @@ First, to implement the method so that its results match both existing implement
 with the differences between them explicit and selectable. Second, to treat the number
 and membership of clubs as an estimate with uncertainty, since they change with the
 settings. Third, to place the clubs in context with the classical convergence measures.
-Section~\ref{sec:method} summarises the method, Section~\ref{sec:design} describes the
-package, Section~\ref{sec:validation} reports the validation, and
-Section~\ref{sec:illustration} illustrates a complete analysis.
+Section~\ref{sec:method} summarises the method and the choices on which the
+implementations differ, Section~\ref{sec:design} describes the package,
+Section~\ref{sec:classical} and Section~\ref{sec:robustness} describe the measures and the
+robustness tools that accompany the clubs, Section~\ref{sec:validation} reports the
+validation, and Section~\ref{sec:illustration} illustrates a complete analysis.
 
 \section{The method} \label{sec:method}
+
+\subsection{The log $t$ test}
 
 Let $X_{it}$ be the (usually log and trend-filtered) observation of unit $i$ at time $t$,
 for $i = 1, \dots, N$ and $t = 1, \dots, T$. The relative transition path is
@@ -75,23 +79,67 @@ log $t$ regression
   \log \frac{H_1}{H_t} - 2 \log \log t = a + b \log t + u_t, \qquad t = \lfloor rT \rfloor, \dots, T,
 \end{equation}
 gives the test of the null $b \ge 0$ against divergence, rejected when the $t$-statistic
-of $\hat{b}$ is below $-1.65$. The regression uses a heteroskedasticity and autocorrelation
-consistent (HAC) covariance, with the fixed-bandwidth (FQSB) or the \citet{Andrews1991}
-data-driven (AQSB) quadratic spectral estimator. The trimming $r$ discards the first
-periods.
+of $\hat{b}$ is below $-1.65$. The trimming $r$ discards the first periods. The regression
+uses a heteroskedasticity and autocorrelation consistent (HAC) covariance, with the
+fixed-bandwidth (FQSB) or the \citet{Andrews1991} data-driven (AQSB) quadratic spectral
+estimator.
+
+\subsection{Clustering and merging}
 
 The clustering sorts units by their final observations, forms a core group of top-ranked
 units chosen by the log $t$ statistic, adds units one at a time while the club keeps
-passing the test (with $c^*$ as a sign threshold), and repeats on the remaining units.
-Clubs that converge together are then merged, with the rules of
-\citet{PhillipsSul2009} (PS) or \citet{vonLynckerThoennissen2017} (vLT).
+passing the test (subject to the threshold $c^*$), and repeats on the remaining units. Units that
+cannot form a club are divergent. Clubs that converge together are then merged, with the
+rules of \citet{PhillipsSul2009} (PS) or \citet{vonLynckerThoennissen2017} (vLT), and
+divergent units can then be assigned to clubs by the same tests.
+
+\subsection{Where the implementations differ} \label{sec:differences}
+
+The papers leave several choices open, and the two implementations settle them
+differently. Reading the sources of both gives the differences in Table~\ref{tab:diff}.
+
+\begin{table}[t!]
+  \centering
+  \begin{tabular}{p{3.2cm}p{5.2cm}p{5.2cm}}
+    \toprule
+    & \proglang{R} (\pkg{ConvergenceClubs}) & \proglang{Stata} (\pkg{psecta}) \\
+    \midrule
+    Core group & candidate group with the largest $|t|$ & the largest $t$, as in the 2007 paper \\
+    Club that fails its own test & kept, with $c^*$ fixed & $c^*$ raised by 0.05 until the club converges \\
+    Default trimming $r$ & $1/3$ & $0.3$ \\
+    Rounding of $rT$ & half to even & half up \\
+    \bottomrule
+  \end{tabular}
+  \caption{Choices on which the \proglang{R} and \proglang{Stata} implementations differ.}
+  \label{tab:diff}
+\end{table}
+
+None of them is wrong, but they can give different clubs on the same data. The package
+implements both sets and lets them be mixed, so that a difference between two published
+classifications can be traced to the rule that causes it
+(Section~\ref{sec:validation}).
 
 \section{The package} \label{sec:design}
+
+\subsection{Design}
 
 The package needs only \pkg{numpy} and \pkg{pandas}; plots, interactive charts and maps
 are optional extras installed with \code{pip install "convergence-clubs[plot]"}. Its
 functions follow those of the \proglang{R} package, so \proglang{R} code translates
-directly.
+directly, with \proglang{Python} names (\code{findClubs} becomes \code{find_clubs},
+\code{estimateMod} becomes \code{log_t_test}). Results are immutable
+objects that record the settings used, so that a table or a figure can be traced back to
+the call that produced it. Clubs are indexed by position or by name, iterating over a
+result gives its clubs, and every table is a \pkg{pandas} data frame.
+
+The input is a wide data frame with one row per unit and one column per period.
+\code{wide_panel} converts a long table, \code{describe_missing}, \code{fill_gaps} and
+\code{balance} deal with missing values, and \code{hp_filter} applies the
+\citet{Hodrick1997} filter when the data are not already filtered. Two panels are bundled:
+GDP per capita for 152 countries and labour productivity for the samples of
+\citet{Mendez2020}.
+
+\subsection{An analysis in a few lines}
 
 \begin{CodeChunk}
 \begin{CodeInput}
@@ -113,42 +161,154 @@ club5        14  0.190    0.111    1.701    0.956       True    0.0
 club6        11  1.003    0.166    6.024    1.000       True    0.0
 club7         2 -0.470    0.842   -0.559    0.288       True    0.0
 \end{CodeOutput}
+\begin{CodeInput}
+>>> merged = clubs.merge("PS")      # club4 and club5 converge together
+>>> merged.memberships()            # unit -> club
+\end{CodeInput}
 \end{CodeChunk}
 
-Results are immutable objects that record the settings used. The argument
-\code{convention="Stata"} switches every choice at once to the \pkg{psecta} behaviour
-(the core group by largest $t$, $c^*$ raised automatically, and a 0.3 trimming);
-individual choices are also arguments. \code{sensitivity()} re-estimates the clubs over a
-grid of settings, \code{bootstrap()} perturbs the data, \code{rolling\_clubs()} follows the
-clubs through time, and the classical measures ($\beta$- and $\sigma$-convergence,
-distribution dynamics, a pairwise test, an ordered logit of club membership) are
-provided alongside. Long analyses run in parallel with \code{n\_jobs} and return the same
-result for any number of workers.
+Choices are arguments: \code{time_trim}, \code{hac_method}, \code{cstar},
+\code{cstar_method}, \code{core_rule}, \code{sort_fraction} and the merging method.
+\code{convention="Stata"} sets the \pkg{psecta} defaults of Table~\ref{tab:diff} at once,
+and an explicit argument overrides the convention. A warning is issued, and
+\code{converges} is false, for a club that fails its own test. \code{clubs.rename()} gives
+clubs meaningful names in every table, plot and report.
+
+Besides the library there is a command line, \code{convergence-clubs}, and
+\code{cc.report(...)} writes the whole analysis (clubs, tests, robustness, classical
+measures, figures) to a single HTML file.
+
+\section{Placing the clubs in context} \label{sec:classical} 
+
+Clubs describe where a panel splits. The package adds the classical measures that say how
+the split relates to other notions of convergence, computed on the same clubs.
+
+\textbf{$\beta$-convergence} \citep{Barro1992} regresses average growth on the initial log
+level, with HC1 standard errors by default; a negative coefficient means convergence, with
+speed and half-life derived from it. On the GDP panel there is no absolute convergence
+($\hat\beta = -0.0004$, $p = 0.81$), but conditional on the club ($\hat\beta = -0.0151$,
+$t = -14.8$) there is, with a half-life of 33 years. This is the pattern clubs describe:
+convergence within groups and not across them.
+
+\textbf{$\sigma$-convergence} tests whether the dispersion falls over time, with a
+Newey--West trend test. The dispersion of all 152 countries rises by 16\% between 1970 and
+2003, while it falls significantly within each of the five clubs with at least three
+countries (Figure~\ref{fig:sigma}).
+
+\begin{figure}[t!]
+  \centering
+  \includegraphics[width=\textwidth]{sigma.pdf}
+  \caption{Dispersion of log GDP per capita, indexed to its first-year value, for all
+    countries and by club.}
+  \label{fig:sigma}
+\end{figure}
+
+\textbf{Distribution dynamics} \citep{Quah1993,Quah1996} look at the shape of the
+distribution rather than its dispersion. The package estimates the transition matrix of
+income relative to the cross-sectional mean over five-year lags, and the ergodic distribution it implies.
+On the GDP panel, 28\% of countries end up in the poorest class and 32\% in the richest,
+against 12\% in the middle one, the ``twin peaks'' that clubs correspond to
+(Figure~\ref{fig:dynamics}).
+
+\begin{figure}[t!]
+  \centering
+  \includegraphics[width=\textwidth]{dynamics.pdf}
+  \caption{Transition probabilities between five classes of relative income over five years,
+    and the initial, final and ergodic distribution of the classes.}
+  \label{fig:dynamics}
+\end{figure}
+
+\textbf{Pairwise convergence} \citep{Pesaran2007} tests whether the gap between every pair
+of units is stationary, with an augmented Dickey--Fuller test, and optionally confirms it
+with the KPSS test. With clubs, the pairs split into within-club and between-club pairs,
+which checks the clustering independently. On the GDP panel the unit root is rejected for
+12.8\% of the 11\,476 pairs, for 15.9\% of the 2\,629 pairs within clubs and 11.8\% of the
+8\,847 pairs between them. The ordering is the one the clubs predict, and the shares are
+low because 34 annual observations give the test little power.
+
+An ordered logit of club membership on covariates completes the set, to ask what explains
+which club a country is in.
+
+\section{How robust are the clubs?} \label{sec:robustness}
+
+The clubs the algorithm finds depend on the settings and on the sample, and published
+classifications rarely report by how much. The package provides three tools.
+
+\code{sensitivity()} re-estimates the clubs over the product of lists of settings
+(trimming, HAC method, $c^*$, merging, sorting) and reports, for each run, the number and
+sizes of clubs and its agreement with the baseline run through the adjusted Rand index,
+and for each unit the share of runs in which it stays with its baseline club mates
+(stability).
+
+\code{bootstrap()} perturbs the data instead of the settings, with three resampling
+schemes: random 80\% subsets of the units, a block bootstrap of the business-cycle
+component (which needs the unfiltered data and filters again), and removal of the last
+periods, where the HP filter is least reliable. Periods are never resampled independently,
+because the log $t$ regression depends on the time index. The result gives, for each unit,
+the share of resamples in which it keeps its club mates, and \code{uncertain(0.8)} lists
+those below a threshold.
+
+\code{rolling_clubs()} estimates the clubs in windows of periods and follows the units
+between windows, with the units that leave their club mates and an alluvial plot of the
+flows.
+
+Analyses with many re-estimations run in parallel with \code{n_jobs}, and the result does
+not depend on the number of workers; the test suite checks this. The lag search of the
+augmented Dickey--Fuller test, which dominates the pairwise test, uses a single QR
+decomposition for all candidate lags instead of one regression for each. Table~\ref{tab:time}
+gives timings on a synthetic panel.
+
+\begin{table}[t!]
+  \centering
+  \begin{tabular}{lrr}
+    \toprule
+    Call & \code{n_jobs=1} & \code{n_jobs=-1} \\
+    \midrule
+    \code{bootstrap(data, 100)} (1\,000 units) & 9.9 s & 1.6 s \\
+    \code{sensitivity(data)} (1\,000 units) & 1.6 s & 0.5 s \\
+    \code{pairwise_convergence(data)} (400 units) & 3.7 s & 0.9 s \\
+    \bottomrule
+  \end{tabular}
+  \caption{Median of five runs of \texttt{scripts/benchmark\_jobs.py} on a synthetic panel of 1\,000
+    units and 40 periods, on an Apple M4 Pro with 12 cores.}
+  \label{tab:time}
+\end{table}
 
 \section{Validation} \label{sec:validation}
 
 \textbf{Against \proglang{R}.} Test statistics, club sizes and memberships are compared
-with fixtures generated by \pkg{ConvergenceClubs} 2.2.5, on simulated panels and on the
-GDP panel, to within $10^{-8}$. The comparison is repeated weekly against the current
-release of the \proglang{R} package. The GDP example reproduces the published table of
-\citet{SicheraPizzuto2019}: seven clubs of 50, 30, 21, 24, 14, 11 and 2 countries,
-and six after merging.
+with fixtures generated by \pkg{ConvergenceClubs} 2.2.5. They cover the log $t$ test on
+several subsets, clustering under six configurations (both HAC methods, trimming, fixed
+and incremental $c^*$) and merging with both rules, on the GDP panel and three simulated
+panels with divergent units and with $c^*$ reaching its cap. Memberships match exactly and
+the statistics to a relative tolerance of $10^{-8}$. The comparison is repeated weekly
+against the current release of the \proglang{R} package. The GDP example reproduces the
+published table of \citet{SicheraPizzuto2019}.
 
-\textbf{Against \proglang{Stata}.} With \code{convention="Stata"}, the package reproduces
-the \pkg{psecta} and \pkg{imergeclub} classifications of all eight panels in
-\citet{Mendez2020} (two samples and four variables), both before and after merging.
-Under the \proglang{R} conventions two of the eight differ, and each is explained by one
-of the two \proglang{Stata} rules.
+\textbf{Against \proglang{Stata}.} \citet{Mendez2020} reports the \pkg{psecta} and
+\pkg{imergeclub} classifications of four variables (labour productivity, the
+capital--output ratio, human capital and total factor productivity) in two samples (26
+high-income and 82 other countries). With \code{convention="Stata"} the package
+reproduces all eight classifications, both before and after merging. Under the
+\proglang{R} conventions six of the eight are reproduced. Each of the other two is
+explained by one of the rules of Table~\ref{tab:diff}: the core group in one, and in the
+other the need to raise $c^*$ to 4.85, above the cap of 3 of the \proglang{R} package.
 
 \textbf{Known differences.} Two inconsistencies were found in \pkg{ConvergenceClubs}
-2.2.5: a stale model at the cap of $c^*$, and a second merging test that ignores the HAC
-method. Both were reported upstream with a fix. For the second, the package follows the fix.
-The documentation lists these differences.
+2.2.5 and reported upstream with a fix. When $c^*$ exceeds its cap, the club falls back to
+its core group, and \proglang{R} reports the regression of the core plus the rejected
+candidates, whereas the package reports that of the core; memberships are the same. The
+second merging test of the vLT rule ignores the HAC method in \proglang{R}, always using
+FQSB; the package follows the fix. When the Andrews bandwidth is zero the \proglang{R}
+dependency \pkg{sandwich} raises an error, and the package falls back to White's
+estimator. The documentation lists these differences.
 
-All numbers in this article are reproduced by the script \code{paper/jss/replication.py}
-in the repository, which stops if any of the comparisons above fails. The test suite
-has 446 tests with full line coverage and runs on the oldest and newest supported
-dependency versions.
+\textbf{Other tests.} The classical measures are compared with \pkg{statsmodels} and
+\pkg{scipy}: the $\beta$ regression, the Newey--West trend, kernel densities, and the ADF and
+KPSS tests (the latter on 360 and 1\,800 simulated series). The suite has 446 tests with
+full line coverage, and continuous integration runs it on the oldest and newest supported
+versions of the dependencies. All numbers in this article are reproduced by
+\code{paper/jss/replication.py} in the repository, which stops if any of them differs.
 
 \section{Illustration} \label{sec:illustration}
 
@@ -199,9 +359,12 @@ was used for research spending in the European Union \citep{BanyulsVides2025}.
 \section{Summary} \label{sec:summary}
 
 \pkg{convergence-clubs} makes the Phillips--Sul method available in \proglang{Python},
-matches the two existing implementations on published results, and adds the tools
-to judge how robust the clubs are. The package is on PyPI and the source and
-documentation are at \url{https://github.com/bbanyuls/club-convergence}.
+reproduces both existing implementations on published results, makes the points where they
+differ explicit, and adds the tools to judge how robust the clubs are and how they relate to
+other notions of convergence. The package is on PyPI and the source and documentation are
+at \url{https://github.com/bbanyuls/club-convergence}. Possible extensions are other
+covariance estimators in the log $t$ regression and a comparison of the clubs with
+alternative clustering methods.
 
 \section*{Computational details}
 

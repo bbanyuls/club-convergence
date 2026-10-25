@@ -103,11 +103,53 @@ def robustness(data):
     print(uncertain.head(10))
 
 
+def classical(data):
+    section("5. Classical measures on the same clubs")
+    gdp = cc.load_gdp()
+    merged = cc.find_clubs(data).merge("PS")
+
+    absolute = cc.beta_convergence(gdp)
+    conditional = cc.beta_convergence(gdp, clubs=merged, club_effects=True)
+    print(f"absolute beta {absolute.beta:.4f} (p = {absolute.p_value:.2f})")
+    print(
+        f"conditional beta {conditional.beta:.4f} (t = {conditional.t_value:.1f}), "
+        f"half-life {conditional.half_life:.0f} years"
+    )
+    assert round(absolute.p_value, 2) == 0.81
+    assert round(conditional.t_value, 1) == -14.8
+    assert round(conditional.half_life) == 33
+
+    sigma = cc.sigma_convergence(gdp, clubs=merged)
+    figure(sigma.plot(index=True).figure, "sigma.pdf")
+    trend = sigma.trend()
+    rise = trend.loc["all units", "last"] / trend.loc["all units", "first"] - 1
+    converging = trend["converging"].tolist()
+    print(f"dispersion of all countries: {rise:+.0%}; clubs converging: {converging}")
+    assert round(rise, 2) == 0.16
+    assert trend["converging"].tolist() == [False] + [True] * 5
+
+    dynamics = cc.distribution_dynamics(gdp, lag=5, clubs=merged)
+    figure(dynamics.plot(), "dynamics.pdf")
+    ergodic = dynamics.distributions()["ergodic"]
+    print(ergodic.round(3).to_string())
+    assert [round(ergodic.iloc[0], 2), round(ergodic.iloc[2], 2), round(ergodic.iloc[-1], 2)] == [
+        0.28,
+        0.12,
+        0.32,
+    ]
+
+    pairwise = cc.pairwise_convergence(gdp, clubs=merged).summary()
+    print(pairwise.round(3))
+    assert pairwise["n_pairs"].tolist() == [11476, 2629, 8847]
+    assert pairwise["share_rejected"].round(3).tolist() == [0.128, 0.159, 0.118]
+
+
 def main():
     warnings.simplefilter("ignore", cc.ClubConvergenceWarning)
     data = r_journal()
     stata()
     robustness(data)
+    classical(data)
     section("done: every check passed")
 
 
