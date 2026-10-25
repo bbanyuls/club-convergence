@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "convergence-clubs"
-version = "0.1.1"
+version = "0.1.2"
 description = "Phillips-Sul club convergence analysis: a Python port of the R package ConvergenceClubs"
 dynamic = ["readme"]
 license = "GPL-3.0-or-later"
@@ -47,6 +47,10 @@ content-type = "text/markdown"
 
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
 path = "README.md"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = 'src="(assets/[^"]+)"'
+replacement = 'src="https://raw.githubusercontent.com/bbanyuls/club-convergence/main/\1"'
 
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
 pattern = '\]\((docs/[^)]+\.(?:png|html))\)'
