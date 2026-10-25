@@ -10,7 +10,6 @@ prints the tables the manuscript quotes. It takes a few seconds.
 
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 import convergence_clubs as cc
@@ -42,6 +41,14 @@ def r_journal():
     return data
 
 
+def _labels(result):
+    return [None if c == "divergent" else int(c[4:]) for c in result.memberships()]
+
+
+def _stata(column):
+    return [None if pd.isna(v) else int(v) for v in column]
+
+
 def stata():
     """Mendez (2020): the eight psecta/imergeclub classifications."""
     section("2. Eight published Stata classifications (Mendez, 2020)")
@@ -54,14 +61,8 @@ def stata():
             last = part[part["year"] == part["year"].max()].set_index("country").reindex(wide.index)
             clubs = cc.find_clubs(wide, convention="Stata", time_trim=0.333)
 
-            def labels(result):
-                return [None if c == "divergent" else int(c[4:]) for c in result.memberships()]
-
-            def stata_col(name):
-                return [None if pd.isna(v) else int(v) for v in last[name]]
-
-            same_initial = labels(clubs) == stata_col(f"club_{variable}")
-            same_final = labels(clubs.merge("PS")) == stata_col(f"finalclub_{variable}")
+            same_initial = _labels(clubs) == _stata(last[f"club_{variable}"])
+            same_final = _labels(clubs.merge("PS")) == _stata(last[f"finalclub_{variable}"])
             rows.append((sample, variable, len(wide), same_initial, same_final))
     table = pd.DataFrame(rows, columns=["sample", "variable", "units", "clubs", "merged"])
     print(table.to_string(index=False))
@@ -75,7 +76,7 @@ def robustness(data):
     )
     table = runs.table()
     print(table.head(8).to_string())
-    print(f"{len(table)} runs; clubs found: {sorted(int(n) for n in table["n_clubs"].unique())}")
+    print(f"{len(table)} runs; clubs found: {sorted(int(n) for n in table['n_clubs'].unique())}")
     stability = runs.stability()
     print(stability.describe().round(3))
 
@@ -94,5 +95,4 @@ def main():
 
 
 if __name__ == "__main__":
-    np.random.seed(0)
     main()
