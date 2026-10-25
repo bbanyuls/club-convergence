@@ -25,7 +25,7 @@ one-call report:
 ## Installation
 
 ```bash
-pip install "convergence-clubs[plot] @ git+https://github.com/bbanyuls/club-convergence"
+pip install "convergence-clubs[plot]"
 ```
 
 The core package needs `numpy` (≥ 1.23) and `pandas` (≥ 1.5), on Python 3.10 or later. The
