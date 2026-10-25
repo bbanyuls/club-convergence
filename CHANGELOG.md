@@ -6,9 +6,9 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-10-24
+## [0.1.1] - 2026-10-25
 
-First release.
+First release on PyPI. The version number `0.1.0` could not be used there (its file names were reserved by an earlier, deleted upload), so this release is identical to it.
 
 ### Club convergence
 - Python port of the R package ConvergenceClubs:
