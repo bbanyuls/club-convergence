@@ -24,6 +24,10 @@
 \Keywords{club convergence, log $t$ test, Phillips--Sul, economic growth, \proglang{Python}}
 \Plainkeywords{club convergence, log t test, Phillips-Sul, economic growth, Python}
 
+\usepackage{graphicx}
+\usepackage{booktabs}
+\graphicspath{{figures/}}
+
 \Address{
   Bernard Banyuls\\
   Universidad Complutense de Madrid\\
@@ -148,18 +152,49 @@ dependency versions.
 
 \section{Illustration} \label{sec:illustration}
 
-On the GDP panel the whole sample diverges ($t = -159.6$), and the algorithm finds seven
-clubs (merged to six). The number of clubs is not a fixed fact of the data. Over the
-sixteen combinations of trimming (four values), HAC method (two) and merging (none or PS),
-the package finds between four and nine clubs, and the share of runs in which a country
-stays with its baseline club mates has a median of 0.84 and a minimum of 0.41. In a
-bootstrap of 200 resamples of the units, 52 of the 152 countries fall below 80\%
-confidence in their membership, mostly in the middle clubs.
+\subsection{The clubs}
 
-This is the information a researcher needs to say how firmly a club is established, and
-it is rarely reported. In an application to research spending in the European Union
-\citep{BanyulsVides2025}, the same method was used to identify clubs among the member
-states.
+On the GDP panel (152 countries, 1970--2003, log and HP-filtered with $\lambda = 400$)
+the whole sample diverges: the log $t$ statistic is $-159.6$. The algorithm finds seven
+clubs of 50, 30, 21, 24, 14, 11 and 2 countries, each passing the test, and the PS rule
+merges the fourth and fifth, leaving six. Figure~\ref{fig:paths} shows the relative
+transition paths of the six merged clubs. The clubs separate in the way the method
+predicts: the paths of the richest clubs drift up and stay flat, and those of the poorest
+decline.
+
+\begin{figure}[t!]
+  \centering
+  \includegraphics[width=\textwidth]{transition_paths.pdf}
+  \caption{Relative transition paths $h_{it}$ of the six clubs after PS merging, with the
+    club average in colour and the last panel comparing the averages.}
+  \label{fig:paths}
+\end{figure}
+
+\subsection{How firm are they?}
+
+The number of clubs is not a fixed fact of the data. Over sixteen combinations of
+trimming (four values), HAC method (two) and merging (none or PS), the package finds
+between four and nine clubs. For each country, the share of runs in which it stays with
+its baseline club mates has a median of 0.84 and a minimum of 0.41
+(\code{cc.sensitivity(...).stability()}).
+
+The bootstrap gives a second view. In 200 resamples of 80\% of the units
+(\code{cc.bootstrap(data, 200, merge="PS", seed=0)}), 52 of the 152 countries stay with
+their club mates in fewer than 80\% of the runs. Figure~\ref{fig:stability} shows
+the share for each country by club.
+
+\begin{figure}[t!]
+  \centering
+  \includegraphics[width=0.8\textwidth]{bootstrap_stability.pdf}
+  \caption{Share of 200 bootstrap resamples in which each country stays with its
+    baseline club mates, by club. The line marks 0.8.}
+  \label{fig:stability}
+\end{figure}
+
+Reporting this is the point of these tools. Two analyses with the same data and
+different but defensible settings can report different numbers of clubs, and the
+published classifications rarely say how much of the result survives. The same method
+was used for research spending in the European Union \citep{BanyulsVides2025}.
 
 \section{Summary} \label{sec:summary}
 
