@@ -78,7 +78,7 @@ from .sensitivity import (
 from .sigma import SigmaResult, sigma_convergence
 from .spatial import SpatialResult, neighbours, spatial_clustering
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 __all__ = [
     "ADFResult",

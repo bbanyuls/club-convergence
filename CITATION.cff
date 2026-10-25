@@ -14,7 +14,7 @@ abstract: >-
 authors:
   - family-names: Banyuls
     given-names: Bernard
-version: 0.1.1
+version: 0.1.2
 license: GPL-3.0-or-later
 repository-code: "https://github.com/bbanyuls/club-convergence"
 keywords:
